@@ -1,0 +1,10 @@
+torch>=1.6.0
+torchcontrib
+numpy
+soundfile
+datasets
+scikit-learn
+tqdm
+transformers
+sentencepiece
+huggingface_hub
