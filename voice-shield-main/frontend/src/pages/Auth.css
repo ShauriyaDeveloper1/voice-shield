@@ -1,0 +1,294 @@
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--bg-main);
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2.5rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-bottom: 2rem;
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--color-accent-dim);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  color: var(--color-accent);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.auth-brand-name {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.auth-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.015em;
+}
+
+.auth-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+/* Forms */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.form-input {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--color-accent);
+  background-color: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 10px rgba(0, 240, 194, 0.1);
+}
+
+.auth-btn {
+  background-color: var(--color-accent);
+  color: var(--bg-main);
+  font-weight: 750;
+  font-size: 0.95rem;
+  padding: 0.8rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.auth-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 0 15px rgba(0, 240, 194, 0.3);
+}
+
+.auth-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Alert Boxes */
+.auth-alert {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 1.25rem;
+}
+
+.auth-alert.error {
+  background-color: var(--color-danger-dim);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+}
+
+.auth-alert.success {
+  background-color: var(--color-success-dim);
+  border: 1px solid var(--color-success);
+  color: var(--color-success);
+}
+
+.auth-footer {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.auth-link {
+  color: var(--color-accent);
+  font-weight: 650;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+/* Phone input with country code selector */
+.phone-input-container {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.country-code-select {
+  width: 115px;
+  cursor: pointer;
+}
+
+.country-code-select option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.phone-number-input {
+  flex: 1;
+}
+
+/* Email Verification with Blue Button */
+.email-verify-row {
+  display: flex;
+  gap: 0.65rem;
+  width: 100%;
+}
+
+.email-input-with-btn {
+  flex: 1;
+}
+
+.verify-email-blue-btn {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0 1.25rem;
+  border-radius: 8px;
+  border: 1px solid #1d4ed8;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.verify-email-blue-btn:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.4);
+}
+
+.verify-email-blue-btn:active:not(:disabled) {
+  background-color: #1e40af;
+  transform: scale(0.98);
+}
+
+.verify-email-blue-btn:disabled {
+  background-color: rgba(37, 99, 235, 0.4);
+  color: rgba(255, 255, 255, 0.6);
+  border-color: transparent;
+  cursor: not-allowed;
+}
+
+.email-verify-hint-text {
+  font-size: 0.78rem;
+  color: #60a5fa;
+  margin: 0;
+  padding-top: 0.2rem;
+  line-height: 1.3;
+}
+
+/* Auth Divider ("or" separator) */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.25rem 0;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+/* Google Sign-In Button */
+.google-signin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.google-signin-btn:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
+}
+
+.google-signin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.google-signin-btn svg {
+  flex-shrink: 0;
+}

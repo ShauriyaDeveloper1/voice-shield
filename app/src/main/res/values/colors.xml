@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- VoiceShield Stitch Design System Colors -->
+
+    <!-- Surface & Background -->
+    <color name="vs_background">#FF10131A</color>
+    <color name="vs_surface">#FF10131A</color>
+    <color name="vs_surface_container">#FF1D1F27</color>
+    <color name="vs_surface_container_low">#FF191B23</color>
+    <color name="vs_surface_container_high">#FF272A32</color>
+    <color name="vs_surface_container_highest">#FF32353D</color>
+    <color name="vs_surface_variant">#FF32353D</color>
+
+    <!-- Primary — Cyan -->
+    <color name="vs_primary">#FF4CD7F6</color>
+    <color name="vs_primary_container">#FF06B6D4</color>
+    <color name="vs_on_primary">#FF003640</color>
+    <color name="vs_on_primary_container">#FF00424F</color>
+
+    <!-- Secondary — Green -->
+    <color name="vs_secondary">#FF4EDEA3</color>
+    <color name="vs_secondary_container">#FF00A572</color>
+    <color name="vs_on_secondary">#FF003824</color>
+
+    <!-- Tertiary — Peach -->
+    <color name="vs_tertiary">#FFFFB3AD</color>
+    <color name="vs_tertiary_container">#FFFF817A</color>
+
+    <!-- Error — Red -->
+    <color name="vs_error">#FFFFB4AB</color>
+    <color name="vs_error_container">#FF93000A</color>
+
+    <!-- On-Surface -->
+    <color name="vs_on_surface">#FFE1E2EC</color>
+    <color name="vs_on_surface_variant">#FFBCC9CD</color>
+
+    <!-- Outline -->
+    <color name="vs_outline">#FF869397</color>
+    <color name="vs_outline_variant">#FF3D494C</color>
+
+    <!-- Legacy colors (kept for compatibility) -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+</resources>

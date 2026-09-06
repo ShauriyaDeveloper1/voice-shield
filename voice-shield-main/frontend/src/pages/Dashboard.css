@@ -1,0 +1,591 @@
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Threat Shield Banner */
+.threat-shield-banner {
+  background: linear-gradient(135deg, rgba(18, 20, 28, 0.8) 0%, rgba(20, 24, 38, 0.9) 100%);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 2.2rem;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  gap: 1.5rem;
+}
+
+.banner-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  z-index: 3;
+}
+
+.banner-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.banner-heading {
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  font-weight: 850;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.banner-subheading {
+  font-size: clamp(0.78rem, 1.6vw, 0.9rem);
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.start-call-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background-color: var(--color-accent);
+  color: var(--bg-main);
+  padding: 0.65rem 1.2rem;
+  border-radius: 10px;
+  font-size: clamp(0.8rem, 1.6vw, 0.9rem);
+  font-weight: 700;
+  width: fit-content;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(0, 240, 194, 0.25);
+  white-space: nowrap;
+}
+
+.start-call-action-btn:hover {
+  opacity: 0.9;
+  box-shadow: 0 4px 20px rgba(0, 240, 194, 0.4);
+}
+
+.banner-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  margin-right: 2rem;
+  flex-shrink: 0;
+}
+
+.success-circle {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: #00e5d4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 35px rgba(0, 229, 212, 0.45);
+}
+
+.checkmark {
+  font-size: 52px;
+  color: #061313;
+  font-weight: 500;
+  z-index: 5;
+  line-height: 1;
+}
+
+/* Outer animated rings */
+.pulse-ring {
+  position: absolute;
+  inset: -15px;
+  border: 1px solid #00e5d4;
+  border-radius: 50%;
+  animation: pulse 2.5s ease-out infinite;
+}
+
+.ring-2 {
+  inset: -30px;
+  opacity: 0.5;
+  animation-delay: 0.8s;
+}
+
+/* Glow behind the circle */
+.glow {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: #00e5d4;
+  filter: blur(25px);
+  opacity: 0.35;
+  animation: glowPulse 2s ease-in-out infinite;
+}
+
+.dotted-ring {
+  position: absolute;
+  inset: -45px;
+  border: 1px dashed rgba(0, 229, 212, 0.6);
+  border-radius: 50%;
+  animation: rotateRing 12s linear infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  70% {
+    transform: scale(1.15);
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    transform: scale(0.9);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.5;
+  }
+}
+
+@keyframes rotateRing {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Stats Row Grid */
+.stats-row-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+}
+
+.stat-item-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease;
+}
+
+.stat-item-card:hover {
+  border-color: rgba(0, 240, 194, 0.15);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  font-weight: 550;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.4rem;
+}
+
+.stat-value.success-text {
+  color: var(--color-success);
+}
+
+.stat-subtext {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.stat-subtext.danger-text {
+  color: var(--color-danger);
+}
+
+/* Dashboard Columns */
+.dashboard-content-columns {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.5rem;
+}
+
+.activity-panel, .signals-panel {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.panel-header-title-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-sub {
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.panel-main {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.view-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.view-all-btn:hover {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Latest Calls List */
+.calls-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.call-list-item {
+  display: flex;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  background-color: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.01);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.call-list-item:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+  border-color: var(--border-color);
+}
+
+.call-avatar {
+  width: 38px;
+  height: 38px;
+  background-color: rgba(0, 240, 194, 0.05);
+  border: 1px solid rgba(0, 240, 194, 0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  margin-right: 0.85rem;
+  flex-shrink: 0;
+}
+
+.call-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex-grow: 1;
+}
+
+.call-user-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.call-user-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Risk Signals */
+.live-pill {
+  background-color: rgba(255, 74, 107, 0.1);
+  color: var(--color-danger);
+  border: 1px solid rgba(255, 74, 107, 0.2);
+  font-size: 0.65rem;
+  font-weight: 850;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+}
+
+.signals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.signal-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  background-color: rgba(255, 255, 255, 0.01);
+  border-radius: 12px;
+}
+
+.signal-icon-container {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.signal-icon-container.success {
+  background-color: var(--color-success-dim);
+  color: var(--color-success);
+}
+
+.signal-icon-container.warning {
+  background-color: var(--color-warning-dim);
+  color: var(--color-warning);
+}
+
+.signal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex-grow: 1;
+}
+
+.signal-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.signal-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.signal-score {
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.signal-score.success {
+  color: var(--color-success);
+}
+
+.signal-score.warning {
+  color: var(--color-warning);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1100px) {
+  .dashboard-content-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .threat-shield-banner {
+    padding: 1.75rem;
+    gap: 1.25rem;
+  }
+  .banner-right {
+    margin-right: 1rem;
+    transform: scale(0.9);
+    transform-origin: center right;
+  }
+}
+
+@media (max-width: 860px) {
+  .stats-row-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    gap: 1.25rem;
+  }
+
+  .threat-shield-banner {
+    padding: 1.5rem 1.25rem;
+    border-radius: 16px;
+    gap: 1rem;
+  }
+
+  .banner-right {
+    margin-right: 0.5rem;
+    transform: scale(0.75);
+    transform-origin: center right;
+  }
+
+  .banner-subheading {
+    margin-bottom: 1.2rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .threat-shield-banner {
+    padding: 1.25rem 1rem;
+    gap: 0.75rem;
+  }
+
+  .banner-heading {
+    font-size: 1.25rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .banner-subheading {
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .start-call-action-btn {
+    padding: 0.55rem 0.95rem;
+    font-size: 0.8rem;
+    gap: 0.45rem;
+  }
+
+  .banner-right {
+    margin-right: 0;
+    transform: scale(0.65);
+    transform-origin: center right;
+  }
+
+  .stats-row-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .stat-item-card {
+    padding: 1.1rem 0.9rem;
+    border-radius: 14px;
+  }
+
+  .stat-label {
+    font-size: 0.72rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .stat-value {
+    font-size: 1.45rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-subtext {
+    font-size: 0.68rem;
+  }
+
+  .activity-panel, .signals-panel {
+    padding: 1.25rem 1rem;
+    border-radius: 14px;
+  }
+
+  .panel-main {
+    font-size: 1.15rem;
+  }
+
+  .call-list-item {
+    padding: 0.7rem 0.75rem;
+  }
+
+  .call-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 0.75rem;
+    margin-right: 0.65rem;
+  }
+
+  .call-user-name {
+    font-size: 0.85rem;
+  }
+
+  .signal-item {
+    padding: 0.7rem 0.75rem;
+    gap: 0.65rem;
+  }
+
+  .signal-icon-container {
+    width: 30px;
+    height: 30px;
+  }
+
+  .signal-title {
+    font-size: 0.8rem;
+  }
+
+  .signal-desc {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .threat-shield-banner {
+    padding: 1rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .banner-right {
+    transform: scale(0.55);
+  }
+
+  .banner-heading {
+    font-size: 1.15rem;
+  }
+
+  .start-call-action-btn {
+    padding: 0.45rem 0.8rem;
+    font-size: 0.75rem;
+  }
+
+  .stats-row-grid {
+    gap: 0.5rem;
+  }
+
+  .stat-item-card {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .stat-value {
+    font-size: 1.3rem;
+  }
+}
