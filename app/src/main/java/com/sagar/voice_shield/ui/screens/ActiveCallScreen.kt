@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -129,9 +130,12 @@ fun ActiveCallScreen(
         }
     }
 
+    var hasInitiatedCall by rememberSaveable { mutableStateOf(false) }
+
     // Auto-initiate call via VoipCallManager if entering with a targetPhone
     LaunchedEffect(targetPhone) {
-        if (targetPhone.isNotBlank() && callState == VoipCallState.IDLE) {
+        if (targetPhone.isNotBlank() && !hasInitiatedCall && callState == VoipCallState.IDLE) {
+            hasInitiatedCall = true
             voipCallManager.initiateCall(targetPhone, callerName)
         }
     }
@@ -150,13 +154,13 @@ fun ActiveCallScreen(
             }
             VoipCallState.ENDED -> {
                 audioCallEngine.stopCallAudio()
-                delay(1500)
+                delay(600)
                 navController.popBackStack()
             }
             VoipCallState.IDLE -> {
                 audioCallEngine.stopCallAudio()
                 if (callDuration > 0) {
-                    delay(1000)
+                    delay(500)
                     navController.popBackStack()
                 }
             }

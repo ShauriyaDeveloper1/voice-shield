@@ -39,7 +39,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            VoiceShieldTheme {
+            val appContainer = (applicationContext as VoiceShieldApp).appContainer
+            val themeMode by appContainer.preferencesManager.themeMode.collectAsStateWithLifecycle(initialValue = "SYSTEM")
+            VoiceShieldTheme(themeMode = themeMode) {
                 VoiceShieldMainApp()
             }
         }
@@ -73,6 +75,7 @@ fun VoiceShieldMainApp() {
         if ((callState == com.sagar.voice_shield.service.VoipCallState.CONNECTED ||
              callState == com.sagar.voice_shield.service.VoipCallState.DIALING ||
              callState == com.sagar.voice_shield.service.VoipCallState.OFFLINE_DEMO) &&
+            activePeerPhone.isNotBlank() &&
             currentRoute?.startsWith("call/") != true) {
             navController.navigate(
                 Screen.ActiveCall.createRoute(
@@ -85,7 +88,7 @@ fun VoiceShieldMainApp() {
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = VsBackground,
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             if (showShell) {
                 VoiceShieldTopBar(

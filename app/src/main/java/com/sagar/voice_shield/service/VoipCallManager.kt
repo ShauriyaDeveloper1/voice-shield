@@ -205,13 +205,15 @@ class VoipCallManager(
                     val status = json.get("status")?.asString ?: return
                     when (status) {
                         "accepted" -> {
-                            stopIncomingRingtone()
-                            _callState.value = VoipCallState.CONNECTED
-                            callStartTime = System.currentTimeMillis()
-                            _statusMessage.value = "Call Connected • Voice Active"
-                            val peer = _activePeerPhone.value
-                            if (peer.isNotBlank()) {
-                                webRtcCallManager.startCallerFlow(peer)
+                            if (_callState.value == VoipCallState.DIALING) {
+                                stopIncomingRingtone()
+                                _callState.value = VoipCallState.CONNECTED
+                                callStartTime = System.currentTimeMillis()
+                                _statusMessage.value = "Call Connected • Voice Active"
+                                val peer = _activePeerPhone.value
+                                if (peer.isNotBlank()) {
+                                    webRtcCallManager.startCallerFlow(peer)
+                                }
                             }
                         }
                         "declined" -> {
@@ -225,15 +227,17 @@ class VoipCallManager(
                             endCall(saveHistory = false)
                         }
                         "offline" -> {
-                            stopIncomingRingtone()
-                            val msg = json.get("message")?.asString ?: "Target is offline. Missed call notification sent."
-                            _statusMessage.value = msg
-                            _callState.value = VoipCallState.OFFLINE_DEMO
-                            callStartTime = System.currentTimeMillis()
-                            notificationHelper.showCallNotification(
-                                title = "Missed Call Alert Generated",
-                                message = "$msg Simulation active."
-                            )
+                            if (_callState.value == VoipCallState.DIALING) {
+                                stopIncomingRingtone()
+                                val msg = json.get("message")?.asString ?: "Target is offline. Missed call notification sent."
+                                _statusMessage.value = msg
+                                _callState.value = VoipCallState.OFFLINE_DEMO
+                                callStartTime = System.currentTimeMillis()
+                                notificationHelper.showCallNotification(
+                                    title = "Missed Call Alert Generated",
+                                    message = "$msg Simulation active."
+                                )
+                            }
                         }
                         "ended" -> {
                             stopIncomingRingtone()
@@ -244,33 +248,40 @@ class VoipCallManager(
                 }
 
                 "webrtc_offer" -> {
-                    stopIncomingRingtone()
-                    val fromPhone = json.get("from_phone")?.takeIf { !it.isJsonNull }?.asString ?: ""
-                    val offerObj = json.get("offer")?.takeIf { !it.isJsonNull }?.asJsonObject
-                    val sdp = offerObj?.get("sdp")?.takeIf { !it.isJsonNull }?.asString ?: ""
-                    if (sdp.isNotBlank()) {
-                        _callState.value = VoipCallState.CONNECTED
-                        callStartTime = System.currentTimeMillis()
-                        _statusMessage.value = "Connected • Voice Active"
-                        webRtcCallManager.handleRemoteOffer(sdp, fromPhone)
+                    // Only process offer if we are IDLE, INCOMING, or DIALING; ignore if call already ENDED
+                    if (_callState.value != VoipCallState.ENDED) {
+                        stopIncomingRingtone()
+                        val fromPhone = json.get("from_phone")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        val offerObj = json.get("offer")?.takeIf { !it.isJsonNull }?.asJsonObject
+                        val sdp = offerObj?.get("sdp")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        if (sdp.isNotBlank()) {
+                            _callState.value = VoipCallState.CONNECTED
+                            callStartTime = System.currentTimeMillis()
+                            _statusMessage.value = "Connected • Voice Active"
+                            webRtcCallManager.handleRemoteOffer(sdp, fromPhone)
+                        }
                     }
                 }
 
                 "webrtc_answer" -> {
-                    val answerObj = json.get("answer")?.takeIf { !it.isJsonNull }?.asJsonObject
-                    val sdp = answerObj?.get("sdp")?.takeIf { !it.isJsonNull }?.asString ?: ""
-                    if (sdp.isNotBlank()) {
-                        webRtcCallManager.handleRemoteAnswer(sdp)
+                    if (_callState.value == VoipCallState.CONNECTED || _callState.value == VoipCallState.DIALING) {
+                        val answerObj = json.get("answer")?.takeIf { !it.isJsonNull }?.asJsonObject
+                        val sdp = answerObj?.get("sdp")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        if (sdp.isNotBlank()) {
+                            webRtcCallManager.handleRemoteAnswer(sdp)
+                        }
                     }
                 }
 
                 "ice_candidate" -> {
-                    val candObj = json.get("candidate")?.takeIf { !it.isJsonNull }?.asJsonObject
-                    val cand = candObj?.get("candidate")?.takeIf { !it.isJsonNull }?.asString ?: ""
-                    val sdpMid = candObj?.get("sdpMid")?.takeIf { !it.isJsonNull }?.asString ?: "0"
-                    val sdpMLineIndex = candObj?.get("sdpMLineIndex")?.takeIf { !it.isJsonNull }?.asInt ?: 0
-                    if (cand.isNotBlank()) {
-                        webRtcCallManager.handleRemoteCandidate(sdpMid, sdpMLineIndex, cand)
+                    if (_callState.value == VoipCallState.CONNECTED || _callState.value == VoipCallState.DIALING) {
+                        val candObj = json.get("candidate")?.takeIf { !it.isJsonNull }?.asJsonObject
+                        val cand = candObj?.get("candidate")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        val sdpMid = candObj?.get("sdpMid")?.takeIf { !it.isJsonNull }?.asString ?: "0"
+                        val sdpMLineIndex = candObj?.get("sdpMLineIndex")?.takeIf { !it.isJsonNull }?.asInt ?: 0
+                        if (cand.isNotBlank()) {
+                            webRtcCallManager.handleRemoteCandidate(sdpMid, sdpMLineIndex, cand)
+                        }
                     }
                 }
             }
@@ -395,14 +406,15 @@ class VoipCallManager(
         }
 
         _callState.value = VoipCallState.ENDED
+        _activePeerPhone.value = ""
+        _activePeerName.value = ""
+        _incomingCall.value = null
+        callStartTime = 0L
+
         coroutineScope.launch {
-            delay(1500)
+            delay(800)
             if (_callState.value == VoipCallState.ENDED) {
                 _callState.value = VoipCallState.IDLE
-                _activePeerPhone.value = ""
-                _activePeerName.value = ""
-                _incomingCall.value = null
-                callStartTime = 0L
             }
         }
     }

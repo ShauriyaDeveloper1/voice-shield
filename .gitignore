@@ -58,3 +58,4 @@ models/weights/
 .externalNativeBuild
 .cxx
 local.properties
+**/.codeatlas/

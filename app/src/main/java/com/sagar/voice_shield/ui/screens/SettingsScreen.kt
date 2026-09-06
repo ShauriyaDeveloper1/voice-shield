@@ -40,6 +40,7 @@ fun SettingsScreen(
     val currentName by prefs.userName.collectAsStateWithLifecycle(initialValue = "User")
     val currentEmail by prefs.userEmail.collectAsStateWithLifecycle(initialValue = "user@voiceshield.ai")
     val currentPhone by prefs.userPhone.collectAsStateWithLifecycle(initialValue = "+91 98765 43210")
+    val currentThemeMode by prefs.themeMode.collectAsStateWithLifecycle(initialValue = "SYSTEM")
 
     // Dialog Visibility States
     var showProfileDialog by remember { mutableStateOf(false) }
@@ -48,6 +49,7 @@ fun SettingsScreen(
     var showNotificationDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showBackendStatusDialog by remember { mutableStateOf(false) }
+    var showThemeDialog by remember { mutableStateOf(false) }
 
     // Settings Toggle States
     var twoFactorAuth by remember { mutableStateOf(true) }
@@ -66,7 +68,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(VsBackground)
+            .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
@@ -124,6 +126,27 @@ fun SettingsScreen(
                 subtitle = if (alertOnHighRisk) "Instant alerts enabled" else "Alerts muted"
             ) {
                 showNotificationDialog = true
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // Appearance section
+        Text("APPEARANCE", style = MaterialTheme.typography.labelMedium, color = VsOnSurfaceVariant, letterSpacing = 2.sp)
+        Spacer(Modifier.height(8.dp))
+
+        SettingsCard {
+            val themeLabel = when (currentThemeMode.uppercase()) {
+                "DARK" -> "Dark Mode (Active)"
+                "LIGHT" -> "Light Mode (Active)"
+                else -> "System Default (Active)"
+            }
+            SettingsItem(
+                icon = Icons.Filled.Palette,
+                title = "App Theme",
+                subtitle = themeLabel
+            ) {
+                showThemeDialog = true
             }
         }
 
@@ -526,6 +549,69 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showBackendStatusDialog = false }) {
+                    Text("Close", color = VsOnSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 7. Theme Dialog (System Default, Dark, Light)
+    // ─────────────────────────────────────────────────────────────────
+    if (showThemeDialog) {
+        AlertDialog(
+            onDismissRequest = { showThemeDialog = false },
+            containerColor = VsSurfaceContainerHighest,
+            title = {
+                Text("Select App Theme", style = MaterialTheme.typography.titleLarge, color = VsOnSurface)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val themes = listOf(
+                        Triple("SYSTEM", "System Default", "Follow Android system dark/light mode"),
+                        Triple("DARK", "Dark Mode", "Sleek low-light aesthetic"),
+                        Triple("LIGHT", "Light Mode", "Crisp daylight appearance")
+                    )
+                    themes.forEach { (mode, label, desc) ->
+                        val isSelected = currentThemeMode.equals(mode, ignoreCase = true)
+                        Surface(
+                            onClick = {
+                                scope.launch {
+                                    prefs.setThemeMode(mode)
+                                    showThemeDialog = false
+                                }
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) VsPrimaryContainer.copy(alpha = 0.25f) else Color.Transparent,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = {
+                                        scope.launch {
+                                            prefs.setThemeMode(mode)
+                                            showThemeDialog = false
+                                        }
+                                    },
+                                    colors = RadioButtonDefaults.colors(selectedColor = VsPrimary)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(label, style = MaterialTheme.typography.titleMedium, color = VsOnSurface, fontWeight = FontWeight.SemiBold)
+                                    Text(desc, style = MaterialTheme.typography.bodySmall, color = VsOnSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showThemeDialog = false }) {
                     Text("Close", color = VsOnSurfaceVariant)
                 }
             }

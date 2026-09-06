@@ -197,25 +197,28 @@ class FloatingOverlayService : Service() {
         val explanationView = container.findViewWithTag<TextView>("explanation")
 
         scoreView?.text = "$score / 100"
-        
-        when (severity) {
-            "HIGH" -> {
+
+        val verdictHeader = explanations.firstOrNull()
+        val verdictDesc = explanations.getOrNull(1) ?: "Acoustic speech monitoring active..."
+
+        when {
+            score >= 70 || severity == "HIGH" -> {
                 scoreView?.setTextColor(Color.parseColor("#FF4444"))
-                statusView?.text = "🔴 HIGH RISK (Scam / Deepfake)"
+                statusView?.text = verdictHeader ?: "🔴 HIGH RISK (Scam / Deepfake)"
                 statusView?.setTextColor(Color.parseColor("#FF4444"))
             }
-            "MEDIUM" -> {
+            score >= 35 || severity == "MEDIUM" -> {
                 scoreView?.setTextColor(Color.parseColor("#FFB74D"))
-                statusView?.text = "🟠 SUSPICIOUS CALL"
+                statusView?.text = verdictHeader ?: "🟠 SUSPICIOUS CALL (Anomaly)"
                 statusView?.setTextColor(Color.parseColor("#FFB74D"))
             }
             else -> {
                 scoreView?.setTextColor(Color.parseColor("#4EDEA3"))
-                statusView?.text = "🟢 NORMAL CALL (Verified Safe)"
+                statusView?.text = verdictHeader ?: "🟢 NORMAL CALL (Verified Safe)"
                 statusView?.setTextColor(Color.parseColor("#4EDEA3"))
             }
         }
 
-        explanationView?.text = explanations.firstOrNull() ?: "Monitoring active..."
+        explanationView?.text = verdictDesc
     }
 }

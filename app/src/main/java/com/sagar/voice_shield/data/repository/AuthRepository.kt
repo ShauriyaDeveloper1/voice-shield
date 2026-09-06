@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import com.sagar.voice_shield.data.local.PreferencesManager
 import com.sagar.voice_shield.data.remote.VoiceShieldApi
 import com.sagar.voice_shield.data.remote.dto.*
+import kotlinx.coroutines.flow.firstOrNull
 import retrofit2.HttpException
 
 class AuthRepository(
@@ -139,18 +140,34 @@ class AuthRepository(
     }
 
     suspend fun loginWithGoogle(
-        email: String = "user@voiceshield.app",
+        email: String = "user@voiceshield.ai",
         name: String = "Google User",
         googleId: String? = null,
-        idToken: String? = null
+        idToken: String? = null,
+        phone: String? = null
     ): Result<LoginResponse> {
         val resolvedId = if (!googleId.isNullOrBlank()) "google-$googleId" else "google-${java.util.UUID.randomUUID().toString().take(8)}"
-        val resolvedName = if (name.isNotBlank()) name else email.substringBefore("@")
+        val resolvedName = if (name.isNotBlank() && name != "Google User") {
+            name
+        } else {
+            val handle = email.substringBefore("@")
+            handle.replace(".", " ")
+                .replace("_", " ")
+                .split(" ")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                .ifBlank { "Google User" }
+        }
+
+        // Use user's real saved phone if available, or phone parameter, otherwise empty
+        val existingPhone = prefs.userPhone.firstOrNull()?.takeIf { it.isNotBlank() && it != "+91 90840 04968" }
+        val resolvedPhone = phone?.ifBlank { null } ?: existingPhone ?: ""
+
         val googleUser = UserDto(
             id = resolvedId,
             name = resolvedName,
             email = email,
-            phone = "+91 90840 04968"
+            phone = resolvedPhone
         )
         val token = idToken ?: "google-token-${googleUser.id}"
         prefs.saveLoginData(
@@ -160,7 +177,7 @@ class AuthRepository(
             email = googleUser.email,
             phone = googleUser.phone
         )
-        return Result.success(LoginResponse("Signed in with Google", token, googleUser))
+        return Result.success(LoginResponse("Signed in with Google ($email)", token, googleUser))
     }
 
     suspend fun logout() {

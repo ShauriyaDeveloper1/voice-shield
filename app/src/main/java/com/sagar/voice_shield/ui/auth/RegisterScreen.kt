@@ -63,23 +63,41 @@ fun RegisterScreen(
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val selectedEmail = result.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+            if (!selectedEmail.isNullOrBlank()) {
+                val derivedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .replace("_", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                viewModel.loginWithGoogleAccount(
+                    email = selectedEmail,
+                    name = derivedName,
+                    id = selectedEmail.hashCode().toString(),
+                    idToken = null
+                )
+                return@rememberLauncherForActivityResult
+            }
+        }
+
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
-                val email = account.email ?: "google.user@voiceshield.app"
-                val name = account.displayName ?: "Google User"
+                val email = account.email ?: "user@voiceshield.ai"
+                val name = account.displayName ?: email.substringBefore("@")
                 viewModel.loginWithGoogleAccount(
                     email = email,
                     name = name,
                     id = account.id,
                     idToken = account.idToken
                 )
-            } else {
-                viewModel.loginWithGoogle()
             }
         } catch (e: Exception) {
-            viewModel.loginWithGoogle()
+            android.util.Log.w("AUTH_GOOGLE", "GoogleSignIn ApiException: ${e.message}")
         }
     }
 
@@ -176,7 +194,22 @@ fun RegisterScreen(
 
                 // Continue with Google Button at the top (Matches Image 2)
                 OutlinedButton(
-                    onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                    onClick = {
+                        try {
+                            val intent = android.accounts.AccountManager.newChooseAccountIntent(
+                                null,
+                                null,
+                                arrayOf("com.google"),
+                                null,
+                                null,
+                                null,
+                                null
+                            )
+                            googleLauncher.launch(intent)
+                        } catch (e: Exception) {
+                            googleLauncher.launch(googleSignInClient.signInIntent)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
