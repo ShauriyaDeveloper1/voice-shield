@@ -1,0 +1,228 @@
+.history-page-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-card-panel {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+
+.history-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.header-text-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.history-subtitle {
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  color: var(--color-accent);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+}
+
+.history-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.history-filters-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+/* Search Bar Input */
+.search-bar-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  width: 220px;
+}
+
+.search-bar-icon {
+  color: var(--text-secondary);
+}
+
+.search-input-field {
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  width: 100%;
+}
+
+.search-input-field::placeholder {
+  color: var(--text-secondary);
+}
+
+/* Dropdown styling */
+.risk-filter-dropdown {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.45rem 0.85rem;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.risk-filter-dropdown option {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* Table styling */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.history-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.history-data-table th, .history-data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.history-data-table th {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding-bottom: 0.75rem;
+}
+
+.th-left, .td-left {
+  text-align: left;
+}
+
+.history-row-item {
+  transition: background-color 0.2s ease;
+}
+
+.history-row-item:hover {
+  background-color: rgba(255, 255, 255, 0.01);
+}
+
+.history-row-item:last-child td {
+  border-bottom: none;
+}
+
+/* Caller details cell */
+.td-caller {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.caller-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.caller-name-span {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.call-again-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(0, 240, 194, 0.12);
+  color: var(--color-accent);
+  border: 1px solid rgba(0, 240, 194, 0.35);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.call-again-btn:hover {
+  background-color: var(--color-accent);
+  color: #0b111e;
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(0, 240, 194, 0.4);
+}
+
+.call-again-btn:active {
+  transform: scale(0.95);
+}
+
+.caller-phone-span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.td-time {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.td-score {
+  font-weight: 700;
+  color: var(--text-primary);
+  padding-right: 1.5rem;
+}
+
+.td-status {
+  font-weight: 700;
+}
+
+.text-safe {
+  color: var(--color-success);
+}
+
+.text-blocked {
+  color: var(--color-danger);
+}
+
+.text-warned {
+  color: var(--color-warning);
+}
+
+.empty-table-row {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 3rem 0;
+  font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .history-header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .history-filters-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .search-bar-wrapper {
+    flex-grow: 1;
+  }
+}

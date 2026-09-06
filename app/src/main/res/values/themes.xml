@@ -1,0 +1,24 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme — VoiceShield Dark -->
+    <style name="Theme.VoiceShield" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/vs_primary</item>
+        <item name="colorPrimaryVariant">@color/vs_primary_container</item>
+        <item name="colorOnPrimary">@color/vs_on_primary</item>
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/vs_secondary</item>
+        <item name="colorSecondaryVariant">@color/vs_secondary_container</item>
+        <item name="colorOnSecondary">@color/vs_on_secondary</item>
+        <!-- Status bar & nav bar -->
+        <item name="android:statusBarColor">@color/vs_background</item>
+        <item name="android:navigationBarColor">@color/vs_surface_container</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="23">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+        <!-- Background -->
+        <item name="android:colorBackground">@color/vs_background</item>
+        <item name="colorOnBackground">@color/vs_on_surface</item>
+        <item name="colorSurface">@color/vs_surface</item>
+        <item name="colorOnSurface">@color/vs_on_surface</item>
+        <item name="colorError">@color/vs_error</item>
+    </style>
+</resources>
