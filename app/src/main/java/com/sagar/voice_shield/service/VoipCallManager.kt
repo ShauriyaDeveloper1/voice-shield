@@ -205,12 +205,12 @@ class VoipCallManager(
                     val status = json.get("status")?.asString ?: return
                     when (status) {
                         "accepted" -> {
-                            if (_callState.value == VoipCallState.DIALING) {
+                            if (_callState.value != VoipCallState.ENDED) {
                                 stopIncomingRingtone()
                                 _callState.value = VoipCallState.CONNECTED
                                 callStartTime = System.currentTimeMillis()
                                 _statusMessage.value = "Call Connected • Voice Active"
-                                val peer = _activePeerPhone.value
+                                val peer = _activePeerPhone.value.ifBlank { json.get("from_phone")?.takeIf { !it.isJsonNull }?.asString ?: "" }
                                 if (peer.isNotBlank()) {
                                     webRtcCallManager.startCallerFlow(peer)
                                 }
@@ -248,7 +248,7 @@ class VoipCallManager(
                 }
 
                 "webrtc_offer" -> {
-                    // Only process offer if we are IDLE, INCOMING, or DIALING; ignore if call already ENDED
+                    // Only process offer if we are not ENDED; ignore if call already ENDED
                     if (_callState.value != VoipCallState.ENDED) {
                         stopIncomingRingtone()
                         val fromPhone = json.get("from_phone")?.takeIf { !it.isJsonNull }?.asString ?: ""
@@ -274,7 +274,7 @@ class VoipCallManager(
                 }
 
                 "ice_candidate" -> {
-                    if (_callState.value == VoipCallState.CONNECTED || _callState.value == VoipCallState.DIALING) {
+                    if (_callState.value != VoipCallState.ENDED && _callState.value != VoipCallState.IDLE) {
                         val candObj = json.get("candidate")?.takeIf { !it.isJsonNull }?.asJsonObject
                         val cand = candObj?.get("candidate")?.takeIf { !it.isJsonNull }?.asString ?: ""
                         val sdpMid = candObj?.get("sdpMid")?.takeIf { !it.isJsonNull }?.asString ?: "0"
@@ -294,7 +294,7 @@ class VoipCallManager(
         _activePeerPhone.value = targetPhone
         _activePeerName.value = if (targetName.isNotBlank()) targetName else formatPhone(targetPhone)
         _callState.value = VoipCallState.DIALING
-        _statusMessage.value = "Calling ${activePeerName.value}..."
+        _statusMessage.value = "Calling ${_activePeerName.value}..."
         callStartTime = System.currentTimeMillis()
 
         val msg = JsonObject().apply {
@@ -303,15 +303,6 @@ class VoipCallManager(
             addProperty("from_name", myName)
         }
         sendMessage(msg)
-
-        // Safety fallback: if no response from server within 4 seconds, enter AI protected call mode
-        coroutineScope.launch {
-            delay(4000)
-            if (_callState.value == VoipCallState.DIALING) {
-                _callState.value = VoipCallState.CONNECTED
-                _statusMessage.value = "Secure Session Established • AI Analyzing"
-            }
-        }
     }
 
     fun acceptIncomingCall() {

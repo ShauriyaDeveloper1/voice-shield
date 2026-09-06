@@ -159,15 +159,36 @@ class AuthRepository(
                 .ifBlank { "Google User" }
         }
 
-        // Use user's real saved phone if available, or phone parameter, otherwise empty
-        val existingPhone = prefs.userPhone.firstOrNull()?.takeIf { it.isNotBlank() && it != "+91 90840 04968" }
-        val resolvedPhone = phone?.ifBlank { null } ?: existingPhone ?: ""
+        val resolvedPhone = phone?.ifBlank { null } ?: ""
+
+        var finalName = resolvedName
+        var finalPhone = resolvedPhone
+        var finalId = resolvedId
+
+        // Synchronize with backend database
+        try {
+            val confirmResp = api.confirmProfile(
+                ConfirmProfileRequest(
+                    id = resolvedId,
+                    email = email,
+                    name = resolvedName,
+                    phone = resolvedPhone
+                )
+            )
+            confirmResp.profile?.let { p ->
+                if (!p.name.isNullOrBlank()) finalName = p.name
+                if (!p.phone.isNullOrBlank()) finalPhone = p.phone
+                if (!p.id.isNullOrBlank()) finalId = p.id
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("AUTH_REPO", "Backend confirmProfile info: ${e.message}")
+        }
 
         val googleUser = UserDto(
-            id = resolvedId,
-            name = resolvedName,
+            id = finalId,
+            name = finalName,
             email = email,
-            phone = resolvedPhone
+            phone = finalPhone
         )
         val token = idToken ?: "google-token-${googleUser.id}"
         prefs.saveLoginData(

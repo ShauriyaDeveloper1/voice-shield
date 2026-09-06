@@ -185,6 +185,7 @@ fun RecentsScreen(navController: NavController) {
                 call = call,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 onCallClick = {
+                    appContainer.voipCallManager.initiateCall(call.phone, call.name)
                     navController.navigate(Screen.ActiveCall.createRoute(phone = call.phone, name = call.name))
                 }
             )

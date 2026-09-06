@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import com.sagar.voice_shield.VoiceShieldApp
 import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.ui.theme.*
 
@@ -32,6 +34,8 @@ data class FavoriteContact(
 
 @Composable
 fun FavoritesScreen(navController: NavController) {
+    val context = LocalContext.current
+    val appContainer = (context.applicationContext as VoiceShieldApp).appContainer
     val favorites = listOf(
         FavoriteContact("Rahul Kumar", "+91 98765 43210", "Son", true, "HIGH", "Today"),
         FavoriteContact("Priya Sharma", "+91 88765 43117", "Wife", true, "HIGH", "Yesterday"),
@@ -97,6 +101,7 @@ fun FavoritesScreen(navController: NavController) {
                 contact = contact,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 onCallClick = {
+                    appContainer.voipCallManager.initiateCall(contact.phone, contact.name)
                     navController.navigate(Screen.ActiveCall.createRoute(phone = contact.phone, name = contact.name))
                 }
             )
