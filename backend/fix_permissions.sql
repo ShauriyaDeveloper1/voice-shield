@@ -47,8 +47,8 @@ BEGIN
   INSERT INTO public.profiles (id, name, email, phone, role)
   VALUES (
     NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1), 'Unknown User'),
+    COALESCE(NEW.email, NEW.id::text || '@placeholder.com'),
     COALESCE(NEW.raw_user_meta_data->>'phone', ''),
     'user'
   )
@@ -74,3 +74,35 @@ ALTER TABLE IF EXISTS speaker_profiles DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS calls DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS call_analysis DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS alerts DISABLE ROW LEVEL SECURITY;
+
+-- 5. Automatic Auth User to Public Profiles Deletion
+-- Automatically deletes public.profiles and drops user-specific partition tables
+CREATE OR REPLACE FUNCTION public.handle_deleted_auth_user()
+RETURNS trigger AS $$
+DECLARE
+  user_suffix TEXT;
+BEGIN
+  -- 1. Get the user suffix used for partitions
+  user_suffix := replace(substr(OLD.id::text, 1, 8), '-', '_');
+  
+  -- 2. Delete calls involving this user as caller or receiver to prevent FK violations
+  DELETE FROM public.calls WHERE caller_id = OLD.id OR receiver_id = OLD.id;
+
+  -- 3. Delete from public.profiles (this triggers ON DELETE CASCADE for other tables)
+  DELETE FROM public.profiles WHERE id = OLD.id;
+  
+  -- 4. Drop the user-specific partition tables completely to clear schema clutter
+  EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', 'trusted_contacts_' || user_suffix);
+  EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', 'speaker_profiles_' || user_suffix);
+  EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', 'calls_' || user_suffix);
+  EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', 'call_analysis_' || user_suffix);
+  EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', 'alerts_' || user_suffix);
+
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_deleted ON auth.users;
+CREATE TRIGGER on_auth_user_deleted
+  AFTER DELETE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_deleted_auth_user();
