@@ -18,6 +18,8 @@
     <!-- Foreground Service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <!-- Full screen intent & Wake lock for incoming calls -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -71,7 +73,7 @@
         <service
             android:name=".service.VoipForegroundService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="phoneCall" />
 
         <!-- Incoming Cellular Call Detection Receiver -->
         <receiver

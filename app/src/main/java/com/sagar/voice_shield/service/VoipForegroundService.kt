@@ -149,7 +149,15 @@ class VoipForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START_SERVICE -> {
-                startForeground(NOTIF_PERSISTENT_ID, buildPersistentNotification())
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        startForeground(NOTIF_PERSISTENT_ID, buildPersistentNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)
+                    } else {
+                        startForeground(NOTIF_PERSISTENT_ID, buildPersistentNotification())
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed startForeground for persistent notification", e)
+                }
             }
 
             ACTION_INCOMING_CALL -> {
