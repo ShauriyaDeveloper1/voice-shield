@@ -17,7 +17,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "API_BASE_URL", "\"https://shauriya24-voiceshield.hf.space/\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://voice-shield-backend-7xpl.onrender.com/\"")
+        buildConfigField("String", "HF_SPACE_URL", "\"https://shauriya24-voiceshield.hf.space/\"")
         buildConfigField("String", "SUPABASE_URL", "\"https://qxengrvbkxxdxdrpzbng.supabase.co/rest/v1/\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZW5ncnZia3h4ZHhkcnB6Ym5nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NTc3MjEsImV4cCI6MjEwMzIzMzcyMX0.rBCyKY8Y4hoQNkFiNohFEt9iJ6IHeOFzK012pUD68eM\"")
         buildConfigField("String", "GOOGLE_CLIENT_ID", "\"846997243859-0jjs99qi5odj4e98ckndf2rtrvp1u04o.apps.googleusercontent.com\"")

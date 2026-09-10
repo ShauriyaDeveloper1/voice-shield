@@ -49,7 +49,7 @@ class AppContainer(context: Context) {
         .build()
 
     private val hfRetrofit: Retrofit = Retrofit.Builder()
-        .baseUrl("https://shauriya24-voiceshield.hf.space/")
+        .baseUrl(BuildConfig.HF_SPACE_URL)
         .client(hfOkHttpClient)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
