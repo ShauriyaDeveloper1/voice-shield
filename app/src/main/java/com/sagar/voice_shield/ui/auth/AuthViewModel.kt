@@ -142,6 +142,10 @@ class AuthViewModel(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
+    fun setAuthError(error: String) {
+        _uiState.value = _uiState.value.copy(isLoading = false, error = error)
+    }
+
     private fun checkHealth() {
         viewModelScope.launch {
             _backendOnline.value = authRepository.checkHealth()

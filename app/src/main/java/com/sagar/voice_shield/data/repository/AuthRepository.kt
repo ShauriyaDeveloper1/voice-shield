@@ -165,7 +165,29 @@ class AuthRepository(
         var finalPhone = resolvedPhone
         var finalId = resolvedId
 
-        // Synchronize with backend database
+        // 1. Try real Google ID token verification via backend /api/auth/google
+        if (!idToken.isNullOrBlank()) {
+            try {
+                val googleResp = api.googleAuth(com.sagar.voice_shield.data.remote.dto.GoogleAuthRequest(idToken = idToken))
+                val u = googleResp.user
+                val finalId = u.id ?: resolvedId
+                val finalName = u.name ?: resolvedName
+                val finalPhone = u.phone ?: resolvedPhone
+                val token = "session-$finalId"
+                prefs.saveLoginData(
+                    token = token,
+                    id = finalId,
+                    name = finalName,
+                    email = u.email ?: email,
+                    phone = finalPhone
+                )
+                return Result.success(LoginResponse(googleResp.message, token, u))
+            } catch (e: Exception) {
+                android.util.Log.w("AUTH_REPO", "Backend googleAuth verification info: ${e.message}")
+            }
+        }
+
+        // 2. Synchronize profile with backend database
         try {
             val confirmResp = api.confirmProfile(
                 ConfirmProfileRequest(

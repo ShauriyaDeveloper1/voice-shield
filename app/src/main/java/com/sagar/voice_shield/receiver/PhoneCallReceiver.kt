@@ -50,7 +50,7 @@ class PhoneCallReceiver : BroadcastReceiver() {
             when (stateStr) {
                 TelephonyManager.EXTRA_STATE_RINGING,
                 TelephonyManager.EXTRA_STATE_OFFHOOK -> {
-                    Log.i(TAG, "Incoming/Active cellular call detected -> Starting Audio Analysis Service")
+                    Log.i(TAG, "Incoming/Active cellular call detected -> Starting Audio Analysis (Mic Active)")
                     try {
                         val audioIntent = Intent(context, AudioAnalysisService::class.java)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -58,6 +58,9 @@ class PhoneCallReceiver : BroadcastReceiver() {
                         } else {
                             context.startService(audioIntent)
                         }
+
+                        // Activate microphone recording now that a call is present
+                        AudioAnalysisService.startAnalysis()
 
                         if (Settings.canDrawOverlays(context)) {
                             val overlayIntent = Intent(context, FloatingOverlayService::class.java)
@@ -69,9 +72,10 @@ class PhoneCallReceiver : BroadcastReceiver() {
                 }
 
                 TelephonyManager.EXTRA_STATE_IDLE -> {
-                    Log.i(TAG, "Cellular call ended -> Stopping Audio Analysis Service")
+                    Log.i(TAG, "Cellular call ended -> Stopping Mic Audio Analysis (Returning to Standby)")
                     try {
-                        context.stopService(Intent(context, AudioAnalysisService::class.java))
+                        // Pause mic capture and return to standby mode
+                        AudioAnalysisService.stopAnalysis()
                         context.stopService(Intent(context, FloatingOverlayService::class.java))
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed stopping call audio analysis service", e)

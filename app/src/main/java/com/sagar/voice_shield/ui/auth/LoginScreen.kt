@@ -76,6 +76,31 @@ fun LoginScreen(
     val googleSignInClient = remember {
         GoogleSignIn.getClient(context, gso)
     }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { accountResult ->
+        if (accountResult.resultCode == android.app.Activity.RESULT_OK && accountResult.data != null) {
+            val selectedEmail = accountResult.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+            if (!selectedEmail.isNullOrBlank()) {
+                val derivedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .replace("_", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                viewModel.loginWithGoogleAccount(
+                    email = selectedEmail,
+                    name = derivedName,
+                    id = selectedEmail.hashCode().toString(),
+                    idToken = null
+                )
+                appContainer.voipCallManager.updateMyCredentials(phone = "", name = derivedName)
+            }
+        }
+    }
+
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -97,6 +122,15 @@ fun LoginScreen(
             }
         } catch (e: Exception) {
             android.util.Log.w("AUTH_GOOGLE", "GoogleSignIn native failed: ${e.message}")
+            try {
+                val chooseAccountIntent = android.accounts.AccountManager.newChooseAccountIntent(
+                    null, null, arrayOf("com.google"), null, null, null, null
+                )
+                accountPickerLauncher.launch(chooseAccountIntent)
+                handled = true
+            } catch (ex: Exception) {
+                android.util.Log.e("AUTH_GOOGLE", "AccountPicker fallback failed", ex)
+            }
         }
 
         if (!handled && result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {

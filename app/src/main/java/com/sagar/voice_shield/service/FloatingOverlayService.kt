@@ -178,23 +178,42 @@ class FloatingOverlayService : Service() {
 
     private fun observeRiskUpdates() {
         scope.launch {
+            AudioAnalysisService.isAnalyzing.collectLatest { isAnalyzing ->
+                updateOverlay(
+                    AudioAnalysisService.riskScore.value,
+                    AudioAnalysisService.severity.value,
+                    AudioAnalysisService.explanations.value,
+                    isAnalyzing
+                )
+            }
+        }
+        scope.launch {
             AudioAnalysisService.riskScore.collectLatest { score ->
-                updateOverlay(score, AudioAnalysisService.severity.value, AudioAnalysisService.explanations.value)
+                updateOverlay(score, AudioAnalysisService.severity.value, AudioAnalysisService.explanations.value, AudioAnalysisService.isAnalyzing.value)
             }
         }
         scope.launch {
             AudioAnalysisService.explanations.collectLatest { exps ->
-                updateOverlay(AudioAnalysisService.riskScore.value, AudioAnalysisService.severity.value, exps)
+                updateOverlay(AudioAnalysisService.riskScore.value, AudioAnalysisService.severity.value, exps, AudioAnalysisService.isAnalyzing.value)
             }
         }
     }
 
-    private fun updateOverlay(score: Int, severity: String, explanations: List<String>) {
+    private fun updateOverlay(score: Int, severity: String, explanations: List<String>, isAnalyzing: Boolean) {
         val container = overlayView as? LinearLayout ?: return
 
         val scoreView = container.findViewWithTag<TextView>("risk_score")
         val statusView = container.findViewWithTag<TextView>("risk_status")
         val explanationView = container.findViewWithTag<TextView>("explanation")
+
+        if (!isAnalyzing) {
+            scoreView?.text = "-- / 100"
+            scoreView?.setTextColor(Color.parseColor("#869397"))
+            statusView?.text = "⏸ STANDBY"
+            statusView?.setTextColor(Color.parseColor("#4CD7F6"))
+            explanationView?.text = "Waiting for call... (Microphone Idle)"
+            return
+        }
 
         scoreView?.text = "$score / 100"
 

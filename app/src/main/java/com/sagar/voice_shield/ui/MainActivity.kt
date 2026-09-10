@@ -88,7 +88,14 @@ fun VoiceShieldMainApp() {
                 launchSingleTop = true
             }
         } else if (!isCallActive && isOnCallScreen) {
-            navController.popBackStack(Screen.ActiveCall.route, inclusive = true)
+            val popped = navController.popBackStack()
+            if (!popped || navController.currentBackStackEntry?.destination?.route?.startsWith("active_call") == true) {
+                navController.navigate(Screen.Recents.route) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+            appContainer.voipCallManager.resetToIdle()
         }
     }
 

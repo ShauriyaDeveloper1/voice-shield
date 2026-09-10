@@ -360,11 +360,14 @@ class VoipCallManager(
         webRtcCallManager.setMute(isMuted)
     }
 
-    fun endCall(saveHistory: Boolean = true, riskScore: Int = 18, sendWsEnded: Boolean = true) {
+    fun endCall(saveHistory: Boolean = true, riskScore: Int = 18, sendWsEnded: Boolean = true, fallbackPeerPhone: String = "") {
         stopIncomingRingtone()
         webRtcCallManager.cleanupPeerConnection(clearQueuedCandidates = true)
         val peer = _activePeerPhone.value
+            .ifBlank { fallbackPeerPhone }
+            .ifBlank { _incomingCall.value?.fromPhone ?: "" }
         val name = _activePeerName.value
+            .ifBlank { _incomingCall.value?.fromName ?: "" }
 
         if (sendWsEnded && peer.isNotBlank()) {
             sendMessage(JsonObject().apply {
@@ -381,7 +384,7 @@ class VoipCallManager(
                     callHistoryDao.insertCall(
                         CallHistoryEntity(
                             id = UUID.randomUUID().toString(),
-                            callerName = name.ifBlank { "Contact" },
+                            callerName = name.ifBlank { formatPhone(peer) },
                             callerNumber = peer,
                             timestamp = System.currentTimeMillis(),
                             durationSeconds = duration,
@@ -396,11 +399,9 @@ class VoipCallManager(
             }
         }
 
-        _callState.value = VoipCallState.ENDED
-        _activePeerPhone.value = ""
-        _activePeerName.value = ""
         _incomingCall.value = null
         callStartTime = 0L
+        _callState.value = VoipCallState.ENDED
     }
 
     /**
@@ -409,6 +410,9 @@ class VoipCallManager(
      */
     fun resetToIdle() {
         if (_callState.value == VoipCallState.ENDED) {
+            _activePeerPhone.value = ""
+            _activePeerName.value = ""
+            _statusMessage.value = null
             _callState.value = VoipCallState.IDLE
         }
     }
