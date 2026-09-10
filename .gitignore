@@ -1,47 +1,195 @@
-# Environment variables / secrets
+# ===========================
+# Environment Variables / Secrets
+# ===========================
 .env
 .env.*
 !.env.example
 
+# ===========================
 # Python
+# ===========================
 __pycache__/
 *.py[cod]
 *.pyo
+*$py.class
+*.so
+.Python
 .venv/
 venv/
 env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+__pypackages__/
 
-# Node
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer Logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit Test / Coverage Reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask
+instance/
+.webassets-cache
+
+# Scrapy
+.scrapy
+
+# Sphinx Documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# mkdocs
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre
+.pyre/
+
+# ===========================
+# Node / Frontend
+# ===========================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
+yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
+dist/
+dist-ssr/
+*.local
 
-# VS Code
+# ===========================
+# Android / Gradle
+# ===========================
+*.iml
+.gradle/
+/local.properties
+local.properties
+/captures
+.externalNativeBuild/
+.cxx/
+app/build/
+
+# ===========================
+# IDE / Editors
+# ===========================
 .vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
+# ===========================
 # OS
+# ===========================
 .DS_Store
 Thumbs.db
 
+# ===========================
 # Logs
+# ===========================
+logs/
 *.log
 
-# Python generated files
+# ===========================
+# Audio / Media Files
+# ===========================
 *.wav
+*.flac
 *.mp3
 *.mp4
 
-# Temporary files
+# ===========================
+# Temporary Files
+# ===========================
 *.tmp
 *.temp
 
-# Large AI Models
+# ===========================
+# Large AI Models & Weights
+# ===========================
 *.safetensors
 *.pth
 *.bin
-models/xlm-roberta*/
 models/weights/
+models/xlm-roberta*/
 
 # Android
 *.iml
@@ -58,4 +206,23 @@ models/weights/
 .externalNativeBuild
 .cxx
 local.properties
+
+# ===========================
+# Datasets & Local Data
+# ===========================
+data/
+local_dataset/
+local_dataset_garystafford/
+
+# ===========================
+# AASIST Specific
+# ===========================
+aasist/exp_result/
+aasist/depreciated/
+aasist/LA/
+
+# ===========================
+# Code Atlas
+# ===========================
+.codeatlas/
 **/.codeatlas/
