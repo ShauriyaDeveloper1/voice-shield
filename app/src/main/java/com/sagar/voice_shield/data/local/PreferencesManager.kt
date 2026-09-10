@@ -30,7 +30,7 @@ class PreferencesManager(private val context: Context) {
     val userEmail: Flow<String?> = dataStore.data.map { it[KEY_USER_EMAIL] }
     val userPhone: Flow<String?> = dataStore.data.map { it[KEY_USER_PHONE] }
     val authToken: Flow<String?> = dataStore.data.map { it[KEY_AUTH_TOKEN] }
-    val speakerProtectionEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_SPEAKER_PROTECTION_ENABLED] ?: false }
+    val speakerProtectionEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_SPEAKER_PROTECTION_ENABLED] ?: true }
     val themeMode: Flow<String> = dataStore.data.map { it[KEY_THEME_MODE] ?: "SYSTEM" }
 
     suspend fun saveLoginData(token: String, id: String, name: String?, email: String?, phone: String?) {

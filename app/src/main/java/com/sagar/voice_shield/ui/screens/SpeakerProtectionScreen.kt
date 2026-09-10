@@ -42,7 +42,7 @@ fun SpeakerProtectionScreen(navController: NavController) {
     val preferencesManager = appContainer.preferencesManager
     val scope = rememberCoroutineScope()
 
-    val savedProtectionEnabled by preferencesManager.speakerProtectionEnabled.collectAsState(initial = false)
+    val savedProtectionEnabled by preferencesManager.speakerProtectionEnabled.collectAsState(initial = true)
     val isServiceRunning by AudioAnalysisService.isRunning.collectAsState()
 
     var hasMicPermission by remember {

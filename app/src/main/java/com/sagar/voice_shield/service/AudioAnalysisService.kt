@@ -8,6 +8,7 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.sagar.voice_shield.R
 import com.sagar.voice_shield.ml.ProsodyAnalyzer
@@ -24,10 +25,14 @@ import com.sagar.voice_shield.VoiceShieldApp
 /**
  * Foreground service that captures microphone audio for Speaker Protection Mode.
  * Analyzes acoustic audio from the phone's speaker during third-party calls.
+ *
+ * Starts in STANDBY mode (no mic recording). Mic capture only begins when
+ * CallNotificationListenerService detects an active call.
  */
 class AudioAnalysisService : Service() {
 
     companion object {
+        private const val TAG = "AudioAnalysisService"
         const val CHANNEL_ID = "voiceshield_audio_analysis"
         const val NOTIFICATION_ID = 1001
         const val SAMPLE_RATE = 16000
@@ -36,6 +41,10 @@ class AudioAnalysisService : Service() {
 
         private val _isRunning = MutableStateFlow(false)
         val isRunning: StateFlow<Boolean> = _isRunning
+
+        // True when actively recording microphone (during a call)
+        private val _isAnalyzing = MutableStateFlow(false)
+        val isAnalyzing: StateFlow<Boolean> = _isAnalyzing
 
         private val _riskScore = MutableStateFlow(0)
         val riskScore: StateFlow<Int> = _riskScore
@@ -51,6 +60,25 @@ class AudioAnalysisService : Service() {
 
         private val _explanations = MutableStateFlow<List<String>>(emptyList())
         val explanations: StateFlow<List<String>> = _explanations
+
+        /**
+         * Called by CallNotificationListenerService when a call is detected.
+         * Begins actual microphone recording and analysis.
+         */
+        fun startAnalysis() {
+            _shouldAnalyze.value = true
+        }
+
+        /**
+         * Called by CallNotificationListenerService when a call ends.
+         * Stops microphone recording but keeps service alive in standby.
+         */
+        fun stopAnalysis() {
+            _shouldAnalyze.value = false
+        }
+
+        // Internal flag to signal the analysis coroutine
+        internal val _shouldAnalyze = MutableStateFlow(false)
     }
 
     private var audioRecord: AudioRecord? = null
@@ -67,7 +95,7 @@ class AudioAnalysisService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val notification = createNotification("Analyzing audio...")
+        val notification = createNotification("Standby — Waiting for call...")
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
@@ -75,7 +103,11 @@ class AudioAnalysisService : Service() {
             startForeground(NOTIFICATION_ID, notification)
         }
 
-        startAudioCapture()
+        _isRunning.value = true
+
+        // Start the standby loop that waits for _shouldAnalyze signal
+        startStandbyLoop()
+
         return START_STICKY
     }
 
@@ -85,13 +117,53 @@ class AudioAnalysisService : Service() {
         stopAudioCapture()
         scope.cancel()
         _isRunning.value = false
+        _isAnalyzing.value = false
+        _shouldAnalyze.value = false
         super.onDestroy()
+    }
+
+    /**
+     * Standby loop: Observes _shouldAnalyze flag.
+     * When true → starts mic capture. When false → stops mic capture.
+     */
+    private fun startStandbyLoop() {
+        analysisJob?.cancel()
+        analysisJob = scope.launch {
+            _shouldAnalyze.collect { shouldAnalyze ->
+                if (shouldAnalyze && _isRunning.value) {
+                    Log.i(TAG, "Call detected → starting microphone capture")
+                    _isAnalyzing.value = true
+                    resetAnalysisState()
+                    val notification = createNotification("Analyzing audio...")
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager?.notify(NOTIFICATION_ID, notification)
+                    startAudioCapture()
+                } else if (!shouldAnalyze) {
+                    Log.i(TAG, "Call ended → stopping microphone capture (standby)")
+                    _isAnalyzing.value = false
+                    stopAudioCapture()
+                    val notification = createNotification("Standby — Waiting for call...")
+                    val manager = getSystemService(NotificationManager::class.java)
+                    manager?.notify(NOTIFICATION_ID, notification)
+                }
+            }
+        }
+    }
+
+    private fun resetAnalysisState() {
+        accumulatedPcm.reset()
+        chunkCount = 0
+        _riskScore.value = 0
+        _severity.value = "LOW"
+        _deepfakeScore.value = 0.0
+        _prosodyScore.value = 0.0
+        _explanations.value = emptyList()
     }
 
     private fun startAudioCapture() {
         val bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         if (bufferSize == AudioRecord.ERROR_BAD_VALUE || bufferSize == AudioRecord.ERROR) {
-            stopSelf()
+            Log.e(TAG, "Invalid buffer size for audio capture")
             return
         }
 
@@ -105,19 +177,18 @@ class AudioAnalysisService : Service() {
             )
 
             if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                stopSelf()
+                Log.e(TAG, "AudioRecord failed to initialize")
                 return
             }
 
             audioRecord?.startRecording()
-            _isRunning.value = true
 
             // Analysis loop — process audio in ~500ms chunks
-            analysisJob = scope.launch {
+            scope.launch(Dispatchers.IO) {
                 val chunkSize = SAMPLE_RATE / 2  // 0.5 seconds of audio
                 val buffer = ShortArray(chunkSize)
 
-                while (isActive && _isRunning.value) {
+                while (_isAnalyzing.value && _isRunning.value) {
                     val read = audioRecord?.read(buffer, 0, chunkSize) ?: 0
                     if (read > 0) {
                         val audioChunk = buffer.copyOfRange(0, read)
@@ -127,7 +198,7 @@ class AudioAnalysisService : Service() {
                 }
             }
         } catch (e: SecurityException) {
-            stopSelf()
+            Log.e(TAG, "Security exception starting audio capture", e)
         }
     }
 
@@ -171,7 +242,7 @@ class AudioAnalysisService : Service() {
             _explanations.value = listOf(verdict, verdictDetail)
         }
 
-        // Accumulate chunks for backend AASIST AI model
+        // Accumulate chunks for HuggingFace AASIST AI model
         val byteData = shortArrayToByteArray(audioData)
         accumulatedPcm.write(byteData)
         chunkCount++
@@ -184,52 +255,88 @@ class AudioAnalysisService : Service() {
             scope.launch {
                 try {
                     val wavBytes = createWavHeader(pcmBytes, SAMPLE_RATE)
-                    val requestBody = wavBytes.toRequestBody("audio/wav".toMediaTypeOrNull())
-                    val part = MultipartBody.Part.createFormData("file", "chunk.wav", requestBody)
-
                     val app = applicationContext as VoiceShieldApp
-                    val response = app.appContainer.api.uploadAudio(part)
-                    _deepfakeScore.value = response.deepfakeScore
-                    _prosodyScore.value = response.prosodyScore
-                    _riskScore.value = response.riskScore.toInt()
-                    _severity.value = response.severity
+                    
+                    // Try HuggingFace API first for real AI model inference
+                    try {
+                        val requestBody = wavBytes.toRequestBody("audio/wav".toMediaTypeOrNull())
+                        val part = MultipartBody.Part.createFormData("file", "chunk.wav", requestBody)
+                        val hfResponse = app.appContainer.huggingFaceApi.analyzeAudio(part)
+                        
+                        _deepfakeScore.value = hfResponse.deepfakeScore
+                        _prosodyScore.value = hfResponse.prosodyScore
+                        _riskScore.value = hfResponse.riskScore.toInt()
+                        _severity.value = hfResponse.severity
 
-                    val computedRisk = _riskScore.value
-                    val verdict = when {
-                        computedRisk >= 70 -> "🔴 HIGH RISK (Scam / Deepfake Detected)"
-                        computedRisk >= 35 -> "🟠 SUSPICIOUS CALL (Acoustic Anomaly)"
-                        else -> "🟢 NORMAL CALL (Verified Safe)"
-                    }
-                    val verdictDetail = when {
-                        computedRisk >= 70 -> "Deepfake model verified synthetic acoustic signature (${computedRisk}% risk)."
-                        computedRisk >= 35 -> "Model identified suspicious prosody and vocal distortion."
-                        else -> "Verified human vocal tract acoustics. No deepfake patterns."
-                    }
-                    _explanations.value = listOf(verdict, verdictDetail)
+                        val computedRisk = _riskScore.value
+                        val verdict = when {
+                            computedRisk >= 70 -> "🔴 HIGH RISK (Scam / Deepfake Detected)"
+                            computedRisk >= 35 -> "🟠 SUSPICIOUS CALL (Acoustic Anomaly)"
+                            else -> "🟢 NORMAL CALL (Verified Safe)"
+                        }
+                        val verdictDetail = when {
+                            computedRisk >= 70 -> "AASIST AI verified synthetic acoustic signature (${computedRisk}% risk)."
+                            computedRisk >= 35 -> "Model identified suspicious prosody and vocal distortion."
+                            else -> "Verified human vocal tract acoustics. No deepfake patterns."
+                        }
+                        _explanations.value = listOf(verdict, verdictDetail)
 
-                    val notification = createNotification("Risk: $computedRisk/100 — $verdict")
-                    val manager = getSystemService(NotificationManager::class.java)
-                    manager?.notify(NOTIFICATION_ID, notification)
+                        val notification = createNotification("Risk: $computedRisk/100 — $verdict")
+                        val manager = getSystemService(NotificationManager::class.java)
+                        manager?.notify(NOTIFICATION_ID, notification)
+                    } catch (hfError: Exception) {
+                        Log.w(TAG, "HuggingFace API unavailable, falling back to backend", hfError)
+                        
+                        // Fallback to backend API
+                        try {
+                            val requestBody = wavBytes.toRequestBody("audio/wav".toMediaTypeOrNull())
+                            val part = MultipartBody.Part.createFormData("file", "chunk.wav", requestBody)
+                            val response = app.appContainer.api.uploadAudio(part)
+                            _deepfakeScore.value = response.deepfakeScore
+                            _prosodyScore.value = response.prosodyScore
+                            _riskScore.value = response.riskScore.toInt()
+                            _severity.value = response.severity
+
+                            val computedRisk = _riskScore.value
+                            val verdict = when {
+                                computedRisk >= 70 -> "🔴 HIGH RISK (Scam / Deepfake Detected)"
+                                computedRisk >= 35 -> "🟠 SUSPICIOUS CALL (Acoustic Anomaly)"
+                                else -> "🟢 NORMAL CALL (Verified Safe)"
+                            }
+                            val verdictDetail = when {
+                                computedRisk >= 70 -> "Deepfake model verified synthetic acoustic signature (${computedRisk}% risk)."
+                                computedRisk >= 35 -> "Model identified suspicious prosody and vocal distortion."
+                                else -> "Verified human vocal tract acoustics. No deepfake patterns."
+                            }
+                            _explanations.value = listOf(verdict, verdictDetail)
+
+                            val notification = createNotification("Risk: $computedRisk/100 — $verdict")
+                            val manager = getSystemService(NotificationManager::class.java)
+                            manager?.notify(NOTIFICATION_ID, notification)
+                        } catch (backendError: Exception) {
+                            // Seamless offline fallback using DSP prosody analysis
+                            val fallbackRisk = localResult.score.toInt().coerceAtLeast(15)
+                            _riskScore.value = fallbackRisk
+                            _severity.value = localResult.severity
+                            val verdict = when {
+                                fallbackRisk >= 70 -> "🔴 HIGH RISK (Scam / Deepfake Detected)"
+                                fallbackRisk >= 35 -> "🟠 SUSPICIOUS CALL (Acoustic Anomaly)"
+                                else -> "🟢 NORMAL CALL (Verified Safe)"
+                            }
+                            val verdictDetail = when {
+                                fallbackRisk >= 70 -> "Acoustic prosody engine detected synthetic vocoder characteristics."
+                                fallbackRisk >= 35 -> "Acoustic anomaly: Irregular pitch flattening or robotic cadence."
+                                else -> "Natural speech acoustic harmonics verified. Safe call."
+                            }
+                            _explanations.value = listOf(verdict, verdictDetail)
+
+                            val notification = createNotification("Risk: $fallbackRisk/100 — $verdict")
+                            val manager = getSystemService(NotificationManager::class.java)
+                            manager?.notify(NOTIFICATION_ID, notification)
+                        }
+                    }
                 } catch (e: Exception) {
-                    // Seamless offline fallback using DSP prosody analysis
-                    val fallbackRisk = localResult.score.toInt().coerceAtLeast(15)
-                    _riskScore.value = fallbackRisk
-                    _severity.value = localResult.severity
-                    val verdict = when {
-                        fallbackRisk >= 70 -> "🔴 HIGH RISK (Scam / Deepfake Detected)"
-                        fallbackRisk >= 35 -> "🟠 SUSPICIOUS CALL (Acoustic Anomaly)"
-                        else -> "🟢 NORMAL CALL (Verified Safe)"
-                    }
-                    val verdictDetail = when {
-                        fallbackRisk >= 70 -> "Acoustic prosody engine detected synthetic vocoder characteristics."
-                        fallbackRisk >= 35 -> "Acoustic anomaly: Irregular pitch flattening or robotic cadence."
-                        else -> "Natural speech acoustic harmonics verified. Safe call."
-                    }
-                    _explanations.value = listOf(verdict, verdictDetail)
-
-                    val notification = createNotification("Risk: $fallbackRisk/100 — $verdict")
-                    val manager = getSystemService(NotificationManager::class.java)
-                    manager?.notify(NOTIFICATION_ID, notification)
+                    Log.e(TAG, "Error in audio analysis pipeline", e)
                 }
             }
         }
@@ -282,7 +389,6 @@ class AudioAnalysisService : Service() {
     }
 
     private fun stopAudioCapture() {
-        analysisJob?.cancel()
         try {
             audioRecord?.stop()
             audioRecord?.release()

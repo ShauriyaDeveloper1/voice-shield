@@ -244,69 +244,102 @@ async def login(req: LoginRequest):
         }
 
 
+import httpx
+
+
 class GoogleAuthRequest(BaseModel):
-    access_token: str
+    access_token: str | None = None
+    id_token: str | None = None
     provider_token: str | None = None
 
 
 @router.post("/google")
 async def google_auth(req: GoogleAuthRequest):
-    """Handle Google OAuth sign-in. The frontend sends the Supabase session access token
-    after completing OAuth via Supabase's signInWithOAuth. We verify the token and
-    ensure a profile exists."""
-    client = _client()
-    if not client:
+    """Handle Google sign-in. Supports:
+    1. Direct Google ID tokens (from Android native Google Sign-in)
+    2. Supabase OAuth access tokens (from Web frontend)
+    """
+    token = req.id_token or req.access_token
+    if not token:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Supabase client not configured"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="access_token or id_token is required"
         )
-    
-    try:
-        # Verify the access token with Supabase
-        user_response = client.auth.get_user(req.access_token)
-        user = user_response.user
-        
-        if not user:
+
+    client = _client()
+    user_id = None
+    email = ""
+    name = ""
+    phone = ""
+    avatar_url = ""
+
+    # Strategy 1: Try verifying as Supabase session access token
+    if client and req.access_token:
+        try:
+            user_response = client.auth.get_user(req.access_token)
+            user = user_response.user
+            if user:
+                user_id = str(user.id)
+                email = user.email or ""
+                meta = user.user_metadata or {}
+                name = meta.get("full_name") or meta.get("name") or email.split("@")[0]
+                phone = meta.get("phone") or ""
+                avatar_url = meta.get("avatar_url") or ""
+        except Exception:
+            # Not a Supabase token or failed, fallback to Google token verification
+            pass
+
+    # Strategy 2: If user not resolved, verify against Google's tokeninfo API
+    if not user_id:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as http_client:
+                resp = await http_client.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={token}")
+                if resp.status_code == 200:
+                    google_info = resp.json()
+                    user_id = f"google-{google_info.get('sub', '')}"
+                    email = google_info.get("email", "")
+                    name = google_info.get("name") or email.split("@")[0]
+                    avatar_url = google_info.get("picture", "")
+                else:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid Google ID token"
+                    )
+        except HTTPException:
+            raise
+        except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid access token"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to verify Google token: {str(e)}"
             )
-        
-        user_id = str(user.id)
-        email = user.email or ""
-        meta = user.user_metadata or {}
-        name = meta.get("full_name") or meta.get("name") or email.split("@")[0]
-        phone = meta.get("phone") or ""
-        avatar_url = meta.get("avatar_url") or ""
-        
-        # Ensure profile exists in our profiles table
-        existing = find_by("profiles", "id", user_id)
-        if not existing:
-            existing_by_email = find_by("profiles", "email", email)
-            if not existing_by_email:
-                profile_data = {
-                    "id": user_id,
-                    "name": name,
-                    "email": email,
-                    "phone": phone,
-                    "role": "user"
-                }
-                insert("profiles", profile_data)
-        
-        return {
-            "message": "Google sign-in successful",
-            "user": {
+
+    # Ensure profile exists in our profiles table
+    existing = find_by("profiles", "id", user_id)
+    if not existing:
+        existing_by_email = find_by("profiles", "email", email)
+        if not existing_by_email:
+            profile_data = {
                 "id": user_id,
                 "name": name,
                 "email": email,
                 "phone": phone,
-                "avatar_url": avatar_url
+                "role": "user"
             }
+            insert("profiles", profile_data)
+        else:
+            profile_data = existing_by_email[0]
+            user_id = profile_data.get("id", user_id)
+            name = profile_data.get("name", name)
+            phone = profile_data.get("phone", phone)
+
+    return {
+        "message": "Google sign-in successful",
+        "user": {
+            "id": user_id,
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "avatar_url": avatar_url
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Google authentication failed: {str(e)}"
-        )
+    }
+

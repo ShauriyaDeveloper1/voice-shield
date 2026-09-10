@@ -401,12 +401,15 @@ class VoipCallManager(
         _activePeerName.value = ""
         _incomingCall.value = null
         callStartTime = 0L
+    }
 
-        coroutineScope.launch {
-            delay(800)
-            if (_callState.value == VoipCallState.ENDED) {
-                _callState.value = VoipCallState.IDLE
-            }
+    /**
+     * Called by ActiveCallScreen after navigation exit to reset state to IDLE.
+     * This avoids the race condition where a delayed reset causes the screen to miss ENDED.
+     */
+    fun resetToIdle() {
+        if (_callState.value == VoipCallState.ENDED) {
+            _callState.value = VoipCallState.IDLE
         }
     }
 

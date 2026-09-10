@@ -38,10 +38,30 @@ class AppContainer(context: Context) {
 
     val api: VoiceShieldApi = retrofit.create(VoiceShieldApi::class.java)
 
+    // HuggingFace Space API (longer timeouts for ZeroGPU cold-start)
+    private val hfOkHttpClient: OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
+        })
+        .connectTimeout(90, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(90, TimeUnit.SECONDS)
+        .build()
+
+    private val hfRetrofit: Retrofit = Retrofit.Builder()
+        .baseUrl("https://shauriya24-voiceshield.hf.space/")
+        .client(hfOkHttpClient)
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val huggingFaceApi: com.sagar.voice_shield.data.remote.HuggingFaceApi =
+        hfRetrofit.create(com.sagar.voice_shield.data.remote.HuggingFaceApi::class.java)
+
     // Local Data
     val preferencesManager = PreferencesManager(context)
     val database = com.sagar.voice_shield.data.local.room.VoiceShieldDatabase.getDatabase(context)
     val callHistoryDao = database.callHistoryDao()
+    val trustedContactDao = database.trustedContactDao()
 
     // Repositories
     val authRepository = AuthRepository(api, preferencesManager)

@@ -109,7 +109,10 @@ fun KeypadScreen(navController: NavController) {
                     onClick = {
                         if (phoneNumber.isNotBlank()) {
                             appContainer.voipCallManager.initiateCall(phoneNumber, "Outgoing Call")
-                            navController.navigate(Screen.ActiveCall.createRoute(phone = phoneNumber, name = "Outgoing Call"))
+                            navController.navigate(Screen.ActiveCall.createRoute(phone = phoneNumber, name = "Outgoing Call")) {
+                                launchSingleTop = true
+                            }
+
                         }
                     },
                     modifier = Modifier.size(64.dp),

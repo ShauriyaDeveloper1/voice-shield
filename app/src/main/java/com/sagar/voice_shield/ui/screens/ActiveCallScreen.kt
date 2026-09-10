@@ -37,6 +37,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.sagar.voice_shield.VoiceShieldApp
+import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.service.VoipCallState
 import com.sagar.voice_shield.ui.theme.*
 import kotlinx.coroutines.delay
@@ -132,6 +133,22 @@ fun ActiveCallScreen(
 
     var hasExitedScreen by remember { mutableStateOf(false) }
 
+    fun exitCallScreen() {
+        if (!hasExitedScreen) {
+            hasExitedScreen = true
+            audioCallEngine.stopCallAudio()
+            val popped = navController.popBackStack(Screen.ActiveCall.route, inclusive = true)
+            if (!popped || navController.currentBackStackEntry?.destination?.route?.startsWith("active_call") == true) {
+                navController.navigate(Screen.Recents.route) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+            // Reset call state to IDLE after screen exits
+            voipCallManager.resetToIdle()
+        }
+    }
+
     // Manage Call Sound Engine (Ringtone and Active Call Audio) and clean exit
     LaunchedEffect(callState) {
         when (callState) {
@@ -146,14 +163,12 @@ fun ActiveCallScreen(
             }
             VoipCallState.ENDED, VoipCallState.IDLE -> {
                 audioCallEngine.stopCallAudio()
-                if (!hasExitedScreen && callDuration > 0) {
-                    hasExitedScreen = true
-                    navController.popBackStack()
-                }
+                exitCallScreen()
             }
             else -> {}
         }
     }
+
 
     DisposableEffect(Unit) {
         onDispose {
@@ -276,8 +291,9 @@ fun ActiveCallScreen(
                     IconButton(
                         onClick = {
                             voipCallManager.endCall(saveHistory = true, riskScore = riskScore)
-                            navController.popBackStack()
+                            exitCallScreen()
                         },
+
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
@@ -588,14 +604,11 @@ fun ActiveCallScreen(
                     val isEnded = (callState == VoipCallState.ENDED)
                     IconButton(
                         onClick = {
-                            if (!isEnded && !hasExitedScreen) {
-                                hasExitedScreen = true
-                                audioCallEngine.stopCallAudio()
-                                voipCallManager.endCall(saveHistory = true, riskScore = riskScore)
-                                navController.popBackStack()
-                            }
+                            voipCallManager.endCall(saveHistory = true, riskScore = riskScore)
+                            exitCallScreen()
                         },
-                        enabled = !isEnded,
+
+                        enabled = !hasExitedScreen,
                         modifier = Modifier
                             .size(58.dp)
                             .clip(CircleShape)

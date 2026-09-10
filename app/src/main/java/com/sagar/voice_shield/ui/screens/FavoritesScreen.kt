@@ -102,8 +102,11 @@ fun FavoritesScreen(navController: NavController) {
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 onCallClick = {
                     appContainer.voipCallManager.initiateCall(contact.phone, contact.name)
-                    navController.navigate(Screen.ActiveCall.createRoute(phone = contact.phone, name = contact.name))
+                    navController.navigate(Screen.ActiveCall.createRoute(phone = contact.phone, name = contact.name)) {
+                        launchSingleTop = true
+                    }
                 }
+
             )
         }
     }

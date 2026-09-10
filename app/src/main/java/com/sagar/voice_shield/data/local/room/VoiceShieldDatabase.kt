@@ -5,10 +5,15 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [CallHistoryEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [CallHistoryEntity::class, TrustedContactEntity::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class VoiceShieldDatabase : RoomDatabase() {
 
     abstract fun callHistoryDao(): CallHistoryDao
+    abstract fun trustedContactDao(): TrustedContactDao
 
     companion object {
         @Volatile
@@ -20,10 +25,13 @@ abstract class VoiceShieldDatabase : RoomDatabase() {
                     context.applicationContext,
                     VoiceShieldDatabase::class.java,
                     "voice_shield_database"
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
         }
     }
 }
+

@@ -70,21 +70,28 @@ fun VoiceShieldMainApp() {
     val activePeerPhone by appContainer.voipCallManager.activePeerPhone.collectAsStateWithLifecycle()
     val activePeerName by appContainer.voipCallManager.activePeerName.collectAsStateWithLifecycle()
 
-    // Auto navigate to active call screen if call is active and user is not already on it
+    // Auto navigate to active call screen if call is active and user is not already on it,
+    // and auto-dismiss when call ends
     LaunchedEffect(callState, currentRoute) {
-        if ((callState == com.sagar.voice_shield.service.VoipCallState.CONNECTED ||
+        val isCallActive = (callState == com.sagar.voice_shield.service.VoipCallState.CONNECTED ||
              callState == com.sagar.voice_shield.service.VoipCallState.DIALING ||
-             callState == com.sagar.voice_shield.service.VoipCallState.OFFLINE_DEMO) &&
-            activePeerPhone.isNotBlank() &&
-            currentRoute?.startsWith("call/") != true) {
+             callState == com.sagar.voice_shield.service.VoipCallState.OFFLINE_DEMO)
+        val isOnCallScreen = currentRoute?.startsWith("active_call") == true
+
+        if (isCallActive && activePeerPhone.isNotBlank() && !isOnCallScreen) {
             navController.navigate(
                 Screen.ActiveCall.createRoute(
                     phone = activePeerPhone,
                     name = activePeerName
                 )
-            )
+            ) {
+                launchSingleTop = true
+            }
+        } else if (!isCallActive && isOnCallScreen) {
+            navController.popBackStack(Screen.ActiveCall.route, inclusive = true)
         }
     }
+
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -156,8 +163,11 @@ fun VoiceShieldMainApp() {
                                         phone = incoming.fromPhone,
                                         name = incoming.fromName
                                     )
-                                )
+                                ) {
+                                    launchSingleTop = true
+                                }
                             },
+
                             colors = ButtonDefaults.buttonColors(containerColor = VsSecondary)
                         ) {
                             Icon(Icons.Filled.Call, null, modifier = Modifier.size(18.dp), tint = VsOnSecondary)
