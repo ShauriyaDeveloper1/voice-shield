@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
     frontend_url: str = "https://voice-shield-ten.vercel.app"
+    hf_space_url: str | None = "https://shauriya24-voiceshield.hf.space"
 
     class Config:
         env_file = ".env"
