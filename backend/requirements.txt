@@ -8,3 +8,4 @@ librosa==0.10.2.post1
 soundfile==0.12.1
 supabase==2.31.0
 python-multipart==0.0.32
+gradio-client>=0.10.0
