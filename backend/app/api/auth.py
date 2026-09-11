@@ -3,8 +3,16 @@ from pydantic import BaseModel
 from uuid import uuid4
 import hashlib
 
-from app.models.schemas import RegisterRequest, LoginRequest
-from app.services.repository import _client, insert, find_by
+from app.models.schemas import (
+    RegisterRequest, 
+    LoginRequest, 
+    SendOtpRequest, 
+    VerifyOtpSignupRequest, 
+    VerifyPhoneRequest, 
+    PhoneLoginRequest
+)
+from app.services.repository import _client, insert, find_by, update
+from app.services.otp_service import send_otp, verify_otp, normalize_phone
 from config import settings
 
 router = APIRouter()
@@ -343,3 +351,186 @@ async def google_auth(req: GoogleAuthRequest):
         }
     }
 
+
+@router.post("/otp/send")
+async def request_otp(req: SendOtpRequest):
+    """Send an OTP code to user's phone via MSG91 (or dev fallback)."""
+    if not req.phone or len(req.phone.strip()) < 7:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Valid phone number is required"
+        )
+    result = send_otp(req.phone)
+    return result
+
+
+@router.post("/otp/verify-signup")
+async def verify_otp_signup(req: VerifyOtpSignupRequest):
+    """
+    Case 1: Calling app manual registration.
+    Verifies OTP sent to the phone. If valid, registers the user in Supabase Auth & public.profiles,
+    automatically generating all 5 user sub-tables via PostgreSQL triggers.
+    Directs directly to dashboard upon return.
+    """
+    if not req.name or not req.phone or not req.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Name, phone number, and OTP code are required"
+        )
+
+    formatted_phone = normalize_phone(req.phone)
+    is_valid = verify_otp(formatted_phone, req.otp)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP. Please try again or request a new code."
+        )
+
+    # Check if user already exists in profiles with this phone
+    existing_users = find_by("profiles", "phone", formatted_phone)
+    if existing_users:
+        user = existing_users[0]
+        # Ensure phone_verified is marked True
+        if not user.get("phone_verified"):
+            try:
+                user = update("profiles", user["id"], {"phone_verified": True})
+            except Exception:
+                pass
+        return {
+            "message": "Account already exists. Logged in successfully.",
+            "access_token": f"token-{user['id']}",
+            "user": user
+        }
+
+    # Generate new user
+    client = _client()
+    user_id = str(uuid4())
+    synthetic_email = f"phone_{''.join(ch for ch in formatted_phone if ch.isdigit())}@voiceshield.com"
+
+    if client:
+        try:
+            # Create in Supabase Auth
+            auth_resp = client.auth.sign_up({
+                "email": synthetic_email,
+                "password": str(uuid4()),
+                "options": {
+                    "data": {
+                        "name": req.name.strip(),
+                        "phone": formatted_phone,
+                        "phone_verified": True
+                    }
+                }
+            })
+            if auth_resp.user:
+                user_id = auth_resp.user.id
+        except Exception as auth_err:
+            print(f"[Auth] Supabase auth signup notice: {auth_err}")
+
+    # Ensure profile entry exists in public.profiles (triggers create_user_subtables)
+    profile_data = {
+        "id": user_id,
+        "name": req.name.strip(),
+        "email": synthetic_email,
+        "phone": formatted_phone,
+        "phone_verified": True,
+        "role": "user"
+    }
+
+    try:
+        saved_profile = insert("profiles", profile_data)
+        return {
+            "message": "Account verified and created successfully.",
+            "access_token": f"token-{user_id}",
+            "user": saved_profile
+        }
+    except Exception as e:
+        # Check if already inserted by on_auth_user_created trigger
+        existing = find_by("profiles", "id", user_id)
+        if existing:
+            return {
+                "message": "Account verified and created successfully.",
+                "access_token": f"token-{user_id}",
+                "user": existing[0]
+            }
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user profile: {str(e)}"
+        )
+
+
+@router.post("/otp/verify-phone")
+async def verify_phone_existing_user(req: VerifyPhoneRequest):
+    """
+    Case 2: Existing or Google OAuth user verifying their phone number.
+    Verifies OTP and updates public.profiles with the phone and phone_verified=true.
+    User's UUID remains completely untouched.
+    """
+    if not req.user_id or not req.phone or not req.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ID, phone number, and OTP are required"
+        )
+
+    formatted_phone = normalize_phone(req.phone)
+    is_valid = verify_otp(formatted_phone, req.otp)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code."
+        )
+
+    # Check if another profile is already using this phone number
+    existing_phone = find_by("profiles", "phone", formatted_phone)
+    for p in existing_phone:
+        if p.get("id") != req.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This phone number is already associated with another account."
+            )
+
+    try:
+        updated = update("profiles", req.user_id, {
+            "phone": formatted_phone,
+            "phone_verified": True
+        })
+        return {
+            "message": "Phone number verified and updated successfully.",
+            "profile": updated
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update profile: {str(e)}"
+        )
+
+
+@router.post("/otp/login-phone")
+async def login_with_phone_otp(req: PhoneLoginRequest):
+    """Login using Phone Number and OTP."""
+    if not req.phone or not req.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number and OTP code are required"
+        )
+
+    formatted_phone = normalize_phone(req.phone)
+    is_valid = verify_otp(formatted_phone, req.otp)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP code."
+        )
+
+    profiles = find_by("profiles", "phone", formatted_phone)
+    if not profiles:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found with this phone number. Please create an account."
+        )
+
+    user = profiles[0]
+    return {
+        "message": "Login successful",
+        "access_token": f"token-{user['id']}",
+        "user": user
+    }
