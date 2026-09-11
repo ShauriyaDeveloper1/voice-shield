@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { registerUser, sendEmailVerification } from '../services/api';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { sendPhoneOtp, verifyOtpAndSignUp } from '../services/api';
 import { signInWithGoogle } from '../services/supabaseClient';
 import './Auth.css';
 
@@ -13,68 +13,102 @@ const GoogleIcon = () => (
   </svg>
 );
 
-function Register() {
+function Register({ onLoginSuccess }) {
+  const navigate = useNavigate();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
-  const [emailVerificationSent, setEmailVerificationSent] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [devOtpHint, setDevOtpHint] = useState('');
 
-  const handleVerifyEmail = async () => {
-    if (!email || !email.includes('@')) {
-      setError('Please enter a valid email address first.');
+  // Countdown timer for OTP resend
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const getFullPhone = () => {
+    return `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+  };
+
+  const handleSendOtp = async () => {
+    const rawDigits = phoneNumber.replace(/\D/g, '');
+    if (!name.trim()) {
+      setError('Please enter your full name first.');
       return;
     }
+    if (!rawDigits || rawDigits.length < 7) {
+      setError('Please enter a valid mobile number.');
+      return;
+    }
+
     setError('');
     setSuccess('');
-    setVerifyingEmail(true);
+    setDevOtpHint('');
+    setSendingOtp(true);
 
     try {
-      const phone = phoneNumber ? `${countryCode} ${phoneNumber.trim()}` : '';
-      // Store pending form inputs so they can be restored upon verification redirect
-      localStorage.setItem('voiceshield_pending_registration', JSON.stringify({
-        name,
-        email,
-        phone,
-        password
-      }));
-
-      const redirectUrl = `${window.location.origin}/verify-success`;
-      const res = await sendEmailVerification(email, name, phone, redirectUrl);
-      setEmailVerificationSent(true);
-      setSuccess(res.message || `Verification link sent to ${email}! Please check your email.`);
+      const fullPhone = getFullPhone();
+      const res = await sendPhoneOtp(fullPhone);
+      setOtpSent(true);
+      setCountdown(30);
+      setSuccess(`Verification code sent to ${fullPhone}`);
+      if (res.debug_otp) {
+        setDevOtpHint(`Dev Code: ${res.debug_otp}`);
+      }
     } catch (err) {
-      setError(err.message || 'Failed to send verification email.');
+      setError(err.message || 'Failed to send OTP. Please check the number and try again.');
     } finally {
-      setVerifyingEmail(false);
+      setSendingOtp(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !email || !phoneNumber || !password) {
-      setError('Please fill in all fields.');
+    if (!name.trim() || !phoneNumber.trim()) {
+      setError('Name and phone number are required.');
       return;
     }
+    if (!otpSent) {
+      setError('Please click "Send Code" to receive an OTP.');
+      return;
+    }
+    if (!otp.trim() || otp.trim().length < 4) {
+      setError('Please enter the 6-digit verification code.');
+      return;
+    }
+
     setError('');
     setSuccess('');
     setLoading(true);
+
     try {
-      const phone = `${countryCode} ${phoneNumber.trim()}`;
-      await registerUser(name, email, phone, password);
-      setSuccess('Account created successfully! You can now sign in.');
-      setName('');
-      setEmail('');
-      setPhoneNumber('');
-      setPassword('');
+      const fullPhone = getFullPhone();
+      const res = await verifyOtpAndSignUp(name.trim(), fullPhone, otp.trim());
+      
+      setSuccess('Account verified successfully! Redirecting to dashboard...');
+
+      // Save user session
+      if (res.user) {
+        localStorage.setItem('voiceshield_user', JSON.stringify(res.user));
+        if (onLoginSuccess) {
+          onLoginSuccess(res.user);
+        } else {
+          setTimeout(() => navigate('/dashboard'), 600);
+        }
+      }
     } catch (err) {
-      setError(err.message || 'Registration failed');
+      setError(err.message || 'Verification failed. Please check the OTP code.');
     } finally {
       setLoading(false);
     }
@@ -85,9 +119,7 @@ function Register() {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // The user will be redirected to Google's OAuth consent screen.
-      // After authentication, they'll be redirected back to /verify-success
-      // where App.jsx handles the callback and creates their profile.
+      // Redirects to Google consent -> /verify-success callback
     } catch (err) {
       setError(err.message || 'Google sign-up failed');
       setGoogleLoading(false);
@@ -103,67 +135,45 @@ function Register() {
         </div>
 
         <div className="auth-header">
-          <h2 className="auth-title">Create account</h2>
-          <p className="auth-subtitle">Monitor calls and keep conversations safer.</p>
+          <h2 className="auth-title">Create Account</h2>
+          <p className="auth-subtitle">Real-time voice protection & AI caller defense.</p>
         </div>
 
         {error && <div className="auth-alert error">{error}</div>}
         {success && <div className="auth-alert success">{success}</div>}
+        {devOtpHint && (
+          <div className="auth-alert info" style={{ backgroundColor: 'rgba(0, 240, 194, 0.1)', color: '#00f0c2', border: '1px solid rgba(0, 240, 194, 0.3)' }}>
+            🔑 {devOtpHint} (Mock Sandbox)
+          </div>
+        )}
 
+        {/* Google Sign-in Option */}
         <button 
           type="button" 
           className="google-signin-btn" 
           onClick={handleGoogleSignUp}
-          disabled={googleLoading}
-          style={{ marginBottom: '0.5rem' }}
+          disabled={googleLoading || loading}
+          style={{ marginBottom: '0.75rem' }}
         >
           <GoogleIcon />
-          {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+          {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
         </button>
 
-        <div className="auth-divider">or</div>
+        <div className="auth-divider">or sign up with phone</div>
 
+        {/* Case 1: Phone + OTP Form */}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label className="form-label">Full Name</label>
             <input 
               type="text" 
               className="form-input"
-              placeholder="Your name" 
+              placeholder="e.g. Rahul Sharma" 
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={loading}
+              required
             />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
-            <div className="email-verify-row">
-              <input 
-                type="email" 
-                className="form-input email-input-with-btn"
-                placeholder="you@example.com" 
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setEmailVerificationSent(false);
-                }}
-                disabled={loading || verifyingEmail}
-              />
-              <button 
-                type="button" 
-                className="verify-email-blue-btn"
-                onClick={handleVerifyEmail}
-                disabled={loading || verifyingEmail || !email.trim()}
-              >
-                {verifyingEmail ? 'Sending...' : emailVerificationSent ? 'Resend' : 'Verify'}
-              </button>
-            </div>
-            {emailVerificationSent && (
-              <p className="email-verify-hint-text">
-                ✓ Verification email sent. Please check your inbox and click the link to verify.
-              </p>
-            )}
           </div>
 
           <div className="form-group">
@@ -173,51 +183,66 @@ function Register() {
                 className="form-input country-code-select"
                 value={countryCode}
                 onChange={(e) => setCountryCode(e.target.value)}
-                disabled={loading}
+                disabled={loading || otpSent}
               >
                 <option value="+91">🇮🇳 +91</option>
                 <option value="+1">🇺🇸 +1</option>
                 <option value="+44">🇬🇧 +44</option>
                 <option value="+61">🇦🇺 +61</option>
-                <option value="+49">🇩🇪 +49</option>
-                <option value="+33">🇫🇷 +33</option>
                 <option value="+971">🇦🇪 +971</option>
-                <option value="+966">🇸🇦 +966</option>
                 <option value="+65">🇸🇬 +65</option>
-                <option value="+81">🇯🇵 +81</option>
-                <option value="+86">🇨🇳 +86</option>
-                <option value="+7">🇷🇺 +7</option>
               </select>
               <input 
                 type="tel" 
                 className="form-input phone-number-input"
-                placeholder="99999 99999" 
+                placeholder="98765 43210" 
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                disabled={loading}
+                disabled={loading || (otpSent && countdown > 0)}
+                required
               />
+              <button 
+                type="button" 
+                className="verify-email-blue-btn"
+                onClick={handleSendOtp}
+                disabled={loading || sendingOtp || (otpSent && countdown > 0)}
+                style={{ whiteSpace: 'nowrap', minWidth: '95px' }}
+              >
+                {sendingOtp ? 'Sending...' : otpSent ? (countdown > 0 ? `${countdown}s` : 'Resend') : 'Get OTP'}
+              </button>
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input 
-              type="password" 
-              className="form-input"
-              placeholder="Choose a password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
+          {otpSent && (
+            <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
+              <label className="form-label">Enter 6-Digit OTP</label>
+              <input 
+                type="text" 
+                maxLength="6"
+                className="form-input"
+                placeholder="• • • • • •" 
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                disabled={loading}
+                autoFocus
+                style={{ letterSpacing: '6px', fontSize: '1.2rem', textAlign: 'center', fontWeight: 'bold' }}
+                required
+              />
+            </div>
+          )}
 
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Creating account...' : 'Create account'}
+          <button 
+            type="submit" 
+            className="auth-btn" 
+            disabled={loading || (!otpSent && !otp)}
+            style={{ marginTop: '0.5rem' }}
+          >
+            {loading ? 'Verifying...' : otpSent ? 'Verify & Go to Dashboard' : 'Send OTP to Continue'}
           </button>
         </form>
 
         <div className="auth-footer">
-          Already registered? <Link to="/login" className="auth-link">Sign in</Link>
+          Already have an account? <Link to="/login" className="auth-link">Sign in</Link>
         </div>
       </div>
     </div>

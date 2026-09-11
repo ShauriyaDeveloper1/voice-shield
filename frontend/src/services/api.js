@@ -295,6 +295,93 @@ export async function googleSignIn(accessToken, providerToken = null) {
   }
 }
 
+/**
+ * Sends an OTP to the specified phone number via MSG91 (or dev fallback).
+ */
+export async function sendPhoneOtp(phone) {
+  try {
+    const response = await client.post('/api/auth/otp/send', { phone });
+    return response.data;
+  } catch (error) {
+    let errMsg = 'Failed to send OTP code';
+    if (error.response?.data?.detail) {
+      errMsg = error.response.data.detail;
+    } else if (error.message) {
+      errMsg = error.message;
+    }
+    console.error('Send OTP failed:', errMsg);
+    throw new Error(errMsg);
+  }
+}
+
+/**
+ * Case 1: Verifies OTP and registers a new account (or logs in existing user).
+ */
+export async function verifyOtpAndSignUp(name, phone, otp) {
+  try {
+    const response = await client.post('/api/auth/otp/verify-signup', {
+      name,
+      phone,
+      otp,
+    });
+    return response.data;
+  } catch (error) {
+    let errMsg = 'Verification and sign-up failed';
+    if (error.response?.data?.detail) {
+      errMsg = error.response.data.detail;
+    } else if (error.message) {
+      errMsg = error.message;
+    }
+    console.error('Verify sign-up failed:', errMsg);
+    throw new Error(errMsg);
+  }
+}
+
+/**
+ * Case 2: Verifies OTP and binds the phone number to an authenticated user's profile.
+ */
+export async function verifyPhoneOtp(userId, phone, otp) {
+  try {
+    const response = await client.post('/api/auth/otp/verify-phone', {
+      user_id: userId,
+      phone,
+      otp,
+    });
+    return response.data;
+  } catch (error) {
+    let errMsg = 'Failed to verify phone number';
+    if (error.response?.data?.detail) {
+      errMsg = error.response.data.detail;
+    } else if (error.message) {
+      errMsg = error.message;
+    }
+    console.error('Verify phone failed:', errMsg);
+    throw new Error(errMsg);
+  }
+}
+
+/**
+ * Logs in a user using their phone number and OTP code.
+ */
+export async function loginWithPhoneOtp(phone, otp) {
+  try {
+    const response = await client.post('/api/auth/otp/login-phone', {
+      phone,
+      otp,
+    });
+    return response.data;
+  } catch (error) {
+    let errMsg = 'Phone login failed';
+    if (error.response?.data?.detail) {
+      errMsg = error.response.data.detail;
+    } else if (error.message) {
+      errMsg = error.message;
+    }
+    console.error('Phone login failed:', errMsg);
+    throw new Error(errMsg);
+  }
+}
+
 export default {
   checkHealth,
   createCall,
@@ -311,4 +398,8 @@ export default {
   sendEmailVerification,
   confirmVerifiedProfile,
   googleSignIn,
+  sendPhoneOtp,
+  verifyOtpAndSignUp,
+  verifyPhoneOtp,
+  loginWithPhoneOtp,
 };

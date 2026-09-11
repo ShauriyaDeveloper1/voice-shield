@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { loginUser } from '../services/api';
+import { loginUser, sendPhoneOtp, loginWithPhoneOtp } from '../services/api';
 import { signInWithGoogle } from '../services/supabaseClient';
 import './Auth.css';
 
@@ -14,13 +14,98 @@ const GoogleIcon = () => (
 );
 
 function Login({ onLoginSuccess }) {
+  const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'password'
+  
+  // Password login inputs
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+
+  // Phone OTP login inputs
+  const [countryCode, setCountryCode] = useState('+91');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [devOtpHint, setDevOtpHint] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setInterval(() => setCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [countdown]);
+
+  const getFullPhone = () => {
+    return `${countryCode}${phoneNumber.replace(/\D/g, '')}`;
+  };
+
+  const handleSendOtp = async () => {
+    const rawDigits = phoneNumber.replace(/\D/g, '');
+    if (!rawDigits || rawDigits.length < 7) {
+      setError('Please enter a valid mobile number.');
+      return;
+    }
+    setError('');
+    setSuccess('');
+    setDevOtpHint('');
+    setSendingOtp(true);
+    try {
+      const fullPhone = getFullPhone();
+      const res = await sendPhoneOtp(fullPhone);
+      setOtpSent(true);
+      setCountdown(30);
+      setSuccess(`Verification code sent to ${fullPhone}`);
+      if (res.debug_otp) {
+        setDevOtpHint(`Dev Code: ${res.debug_otp}`);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to send OTP code.');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handlePhoneSubmit = async (e) => {
+    e.preventDefault();
+    if (!phoneNumber.trim()) {
+      setError('Please enter your mobile number.');
+      return;
+    }
+    if (!otpSent) {
+      setError('Please click "Get OTP" to receive a verification code.');
+      return;
+    }
+    if (!otp.trim()) {
+      setError('Please enter the OTP code.');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setLoading(true);
+    try {
+      const fullPhone = getFullPhone();
+      const data = await loginWithPhoneOtp(fullPhone, otp.trim());
+      if (data.user) {
+        onLoginSuccess(data.user);
+      } else {
+        setError('Login failed: Invalid server response');
+      }
+    } catch (err) {
+      setError(err.message || 'Invalid or expired OTP code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
     e.preventDefault();
     if (!username || !password) {
       setError('Please fill in all fields.');
@@ -47,9 +132,6 @@ function Login({ onLoginSuccess }) {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
-      // The user will be redirected to Google's OAuth consent screen.
-      // After authentication, they'll be redirected back to /verify-success
-      // where App.jsx handles the callback.
     } catch (err) {
       setError(err.message || 'Google sign-in failed');
       setGoogleLoading(false);
@@ -65,56 +147,174 @@ function Login({ onLoginSuccess }) {
         </div>
 
         <div className="auth-header">
-          <h2 className="auth-title">Sign in</h2>
-          <p className="auth-subtitle">Monitor calls and keep conversations safer.</p>
+          <h2 className="auth-title">Welcome Back</h2>
+          <p className="auth-subtitle">Sign in to access AI call security & threat intelligence.</p>
         </div>
 
         {error && <div className="auth-alert error">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="auth-form">
-          <div className="form-group">
-            <label className="form-label">Name or Email</label>
-            <input 
-              type="text" 
-              className="form-input"
-              placeholder="Enter your name or email" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-            />
+        {success && <div className="auth-alert success">{success}</div>}
+        {devOtpHint && (
+          <div className="auth-alert info" style={{ backgroundColor: 'rgba(0, 240, 194, 0.1)', color: '#00f0c2', border: '1px solid rgba(0, 240, 194, 0.3)' }}>
+            🔑 {devOtpHint} (Mock Sandbox)
           </div>
+        )}
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
-            <input 
-              type="password" 
-              className="form-input"
-              placeholder="Your password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-            />
-          </div>
-
-          <button type="submit" className="auth-btn" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign in'}
+        {/* Auth Method Selector */}
+        <div style={{
+          display: 'flex',
+          background: 'rgba(255, 255, 255, 0.05)',
+          padding: '4px',
+          borderRadius: '8px',
+          marginBottom: '1.25rem',
+          border: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <button
+            type="button"
+            onClick={() => { setAuthMethod('phone'); setError(''); setSuccess(''); }}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: authMethod === 'phone' ? 'bold' : 'normal',
+              background: authMethod === 'phone' ? 'var(--color-primary, #6366f1)' : 'transparent',
+              color: '#fff',
+              fontSize: '0.86rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            📱 Phone & OTP
           </button>
-        </form>
+          <button
+            type="button"
+            onClick={() => { setAuthMethod('password'); setError(''); setSuccess(''); }}
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: 'pointer',
+              fontWeight: authMethod === 'password' ? 'bold' : 'normal',
+              background: authMethod === 'password' ? 'var(--color-primary, #6366f1)' : 'transparent',
+              color: '#fff',
+              fontSize: '0.86rem',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🔒 Password
+          </button>
+        </div>
 
-        <div className="auth-divider">or</div>
+        {authMethod === 'phone' ? (
+          <form onSubmit={handlePhoneSubmit} className="auth-form">
+            <div className="form-group">
+              <label className="form-label">Mobile Number</label>
+              <div className="phone-input-container">
+                <select 
+                  className="form-input country-code-select"
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  disabled={loading || otpSent}
+                >
+                  <option value="+91">🇮🇳 +91</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+44">🇬🇧 +44</option>
+                  <option value="+61">🇦🇺 +61</option>
+                  <option value="+971">🇦🇪 +971</option>
+                  <option value="+65">🇸🇬 +65</option>
+                </select>
+                <input 
+                  type="tel" 
+                  className="form-input phone-number-input"
+                  placeholder="98765 43210" 
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  disabled={loading || (otpSent && countdown > 0)}
+                  required
+                />
+                <button 
+                  type="button" 
+                  className="verify-email-blue-btn"
+                  onClick={handleSendOtp}
+                  disabled={loading || sendingOtp || (otpSent && countdown > 0)}
+                  style={{ whiteSpace: 'nowrap', minWidth: '95px' }}
+                >
+                  {sendingOtp ? 'Sending...' : otpSent ? (countdown > 0 ? `${countdown}s` : 'Resend') : 'Get OTP'}
+                </button>
+              </div>
+            </div>
+
+            {otpSent && (
+              <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
+                <label className="form-label">Enter 6-Digit OTP</label>
+                <input 
+                  type="text" 
+                  maxLength="6"
+                  className="form-input"
+                  placeholder="• • • • • •" 
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  disabled={loading}
+                  autoFocus
+                  style={{ letterSpacing: '6px', fontSize: '1.2rem', textAlign: 'center', fontWeight: 'bold' }}
+                  required
+                />
+              </div>
+            )}
+
+            <button type="submit" className="auth-btn" disabled={loading || (!otpSent && !otp)}>
+              {loading ? 'Signing in...' : otpSent ? 'Verify & Sign In' : 'Get OTP to Sign In'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handlePasswordSubmit} className="auth-form">
+            <div className="form-group">
+              <label className="form-label">Name or Email</label>
+              <input 
+                type="text" 
+                className="form-input"
+                placeholder="Enter your name or email" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Password</label>
+              <input 
+                type="password" 
+                className="form-input"
+                placeholder="Your password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
+
+            <button type="submit" className="auth-btn" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign in with Password'}
+            </button>
+          </form>
+        )}
+
+        <div className="auth-divider">or continue with</div>
 
         <button 
           type="button" 
           className="google-signin-btn" 
           onClick={handleGoogleSignIn}
-          disabled={googleLoading}
+          disabled={googleLoading || loading}
         >
           <GoogleIcon />
-          {googleLoading ? 'Redirecting to Google...' : 'Continue with Google'}
+          {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
         </button>
 
         <div className="auth-footer" style={{ marginTop: '1.25rem' }}>
-          New here? <Link to="/register" className="auth-link">Create an account</Link>
+          Don't have an account? <Link to="/register" className="auth-link">Create an account</Link>
         </div>
       </div>
     </div>

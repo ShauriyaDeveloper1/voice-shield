@@ -10,7 +10,7 @@ import Call from './pages/Call';
 import CallHistory from './pages/CallHistory';
 import ThreatAnalytics from './pages/ThreatAnalytics';
 import Settings from './pages/Settings';
-import api, { checkHealth, googleSignIn } from './services/api';
+import api, { checkHealth, googleSignIn, sendPhoneOtp, verifyPhoneOtp } from './services/api';
 import { supabase } from './services/supabaseClient';
 import { CallProvider } from './context/CallContext';
 import IncomingCallModal from './components/IncomingCallModal';
@@ -34,6 +34,21 @@ function App() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState('');
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [sendingPhoneOtp, setSendingPhoneOtp] = useState(false);
+  const [verifyingPhoneOtp, setVerifyingPhoneOtp] = useState(false);
+  const [phoneCountdown, setPhoneCountdown] = useState(0);
+  const [phoneDevHint, setPhoneDevHint] = useState('');
+
+  // Countdown timer for profile phone OTP
+  useEffect(() => {
+    let timer;
+    if (phoneCountdown > 0) {
+      timer = setInterval(() => setPhoneCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [phoneCountdown]);
 
   // Load user from localStorage on mount (with UUID validation)
   useEffect(() => {
@@ -163,9 +178,61 @@ function App() {
       setProfileName(user.name || '');
       setProfileEmail(user.email || '');
       setProfilePhone(user.phone || '');
+      setPhoneOtp('');
+      setPhoneOtpSent(false);
+      setPhoneDevHint('');
       setProfileError('');
       setProfileSuccess('');
       setShowProfileModal(true);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    const rawDigits = profilePhone.replace(/\D/g, '');
+    if (!rawDigits || rawDigits.length < 7) {
+      setProfileError('Please enter a valid mobile number with country code (e.g. +91 9876543210).');
+      return;
+    }
+    setProfileError('');
+    setProfileSuccess('');
+    setPhoneDevHint('');
+    setSendingPhoneOtp(true);
+    try {
+      const res = await sendPhoneOtp(profilePhone.trim());
+      setPhoneOtpSent(true);
+      setPhoneCountdown(30);
+      setProfileSuccess(`Verification code sent to ${profilePhone}`);
+      if (res.debug_otp) {
+        setPhoneDevHint(`Dev Code: ${res.debug_otp}`);
+      }
+    } catch (err) {
+      setProfileError(err.message || 'Failed to send OTP code.');
+    } finally {
+      setSendingPhoneOtp(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    if (!phoneOtp.trim()) {
+      setProfileError('Please enter the verification code.');
+      return;
+    }
+    setProfileError('');
+    setProfileSuccess('');
+    setVerifyingPhoneOtp(true);
+    try {
+      await verifyPhoneOtp(user.id, profilePhone.trim(), phoneOtp.trim());
+      const updatedUser = { ...user, phone: profilePhone.trim(), phone_verified: true };
+      setUser(updatedUser);
+      localStorage.setItem('voiceshield_user', JSON.stringify(updatedUser));
+      setProfileSuccess('✓ Mobile number verified & profile saved successfully!');
+      setPhoneOtpSent(false);
+      setPhoneOtp('');
+      setTimeout(() => setShowProfileModal(false), 1200);
+    } catch (err) {
+      setProfileError(err.message || 'Verification failed. Please check the code.');
+    } finally {
+      setVerifyingPhoneOtp(false);
     }
   };
 
@@ -439,7 +506,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Navigate to="/login" replace />} />
               <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/register" element={<Register onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/verify-success" element={<VerifySuccess onLoginSuccess={handleLoginSuccess} />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/contacts" element={<Contacts currentUser={user} />} />
@@ -451,35 +518,42 @@ function App() {
           </main>
         </div>
 
-        {/* Edit Profile Modal Dialog */}
+        {/* Edit Profile & Mobile Verification Modal Dialog (Case 2: Google Sign-in) */}
         {showProfileModal && (
           <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
             <div className="modal-content-card" onClick={(e) => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Edit Profile Information</h3>
+                <h3>{user?.phone_verified ? 'Edit Profile' : 'Verify Mobile Number'}</h3>
                 <button className="modal-close-btn" onClick={() => setShowProfileModal(false)}>
                   <X size={18} />
                 </button>
               </div>
-              {!user?.phone && (
+              
+              {!user?.phone_verified && (
                 <div style={{
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: '8px',
                   backgroundColor: 'rgba(0, 240, 194, 0.1)',
                   border: '1px solid rgba(0, 240, 194, 0.3)',
                   color: 'var(--color-accent, #00f0c2)',
-                  fontSize: '0.82rem',
+                  fontSize: '0.84rem',
                   marginBottom: '1rem',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  gap: '10px'
                 }}>
-                  <span>📱</span>
-                  <span>Please add your mobile number to complete your profile setup.</span>
+                  <span style={{ fontSize: '1.2rem' }}>🛡️</span>
+                  <span><strong>Action Required:</strong> Please verify your mobile number with OTP to activate live AI call protection.</span>
                 </div>
               )}
+
               {profileError && <div className="modal-error-alert">{profileError}</div>}
               {profileSuccess && <div className="modal-success-alert">{profileSuccess}</div>}
+              {phoneDevHint && (
+                <div className="modal-success-alert" style={{ backgroundColor: 'rgba(0, 240, 194, 0.1)', color: '#00f0c2', border: '1px solid rgba(0, 240, 194, 0.3)' }}>
+                  🔑 {phoneDevHint} (Mock Sandbox)
+                </div>
+              )}
               
               <form onSubmit={handleProfileSubmit} className="modal-form">
                 <div className="modal-form-group">
@@ -502,21 +576,71 @@ function App() {
                     disabled={updatingProfile}
                   />
                 </div>
+
                 <div className="modal-form-group">
-                  <label>Mobile Number</label>
-                  <input 
-                    type="tel" 
-                    value={profilePhone} 
-                    onChange={(e) => setProfilePhone(e.target.value)} 
-                    disabled={updatingProfile}
-                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <label style={{ margin: 0 }}>Mobile Number</label>
+                    {user?.phone_verified ? (
+                      <span style={{ color: '#00f0c2', fontSize: '0.78rem', fontWeight: 'bold' }}>✓ Verified</span>
+                    ) : (
+                      <span style={{ color: '#f59e0b', fontSize: '0.78rem' }}>Verification Needed</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input 
+                      type="tel" 
+                      placeholder="+91 9876543210"
+                      value={profilePhone} 
+                      onChange={(e) => setProfilePhone(e.target.value)} 
+                      disabled={updatingProfile || (phoneOtpSent && phoneCountdown > 0)}
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button" 
+                      className="verify-email-blue-btn"
+                      onClick={handleSendPhoneOtp}
+                      disabled={updatingProfile || sendingPhoneOtp || (phoneOtpSent && phoneCountdown > 0)}
+                      style={{ whiteSpace: 'nowrap', minWidth: '95px' }}
+                    >
+                      {sendingPhoneOtp ? 'Sending...' : phoneOtpSent ? (phoneCountdown > 0 ? `${phoneCountdown}s` : 'Resend') : 'Send OTP'}
+                    </button>
+                  </div>
                 </div>
+
+                {phoneOtpSent && (
+                  <div className="modal-form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
+                    <label>Enter 6-Digit OTP</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="text" 
+                        maxLength="6"
+                        placeholder="• • • • • •"
+                        value={phoneOtp} 
+                        onChange={(e) => setPhoneOtp(e.target.value.replace(/\D/g, ''))} 
+                        disabled={verifyingPhoneOtp}
+                        autoFocus
+                        style={{ flex: 1, letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }}
+                      />
+                      <button 
+                        type="button" 
+                        className="modal-submit-btn"
+                        onClick={handleVerifyPhoneOtp}
+                        disabled={verifyingPhoneOtp || !phoneOtp.trim()}
+                        style={{ width: 'auto', padding: '0 16px', margin: 0, backgroundColor: '#00f0c2', color: '#0f172a' }}
+                      >
+                        {verifyingPhoneOtp ? 'Verifying...' : 'Verify OTP'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button 
                   type="submit" 
                   className="modal-submit-btn"
                   disabled={updatingProfile}
+                  style={{ marginTop: '12px' }}
                 >
-                  {updatingProfile ? 'Saving Changes...' : 'Save Changes'}
+                  {updatingProfile ? 'Saving Changes...' : 'Save Profile Changes'}
                 </button>
               </form>
             </div>

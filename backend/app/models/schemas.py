@@ -57,3 +57,24 @@ class ContactCreate(BaseModel):
     name: str
     phone: str
     relation: str | None = "Family"
+
+
+class SendOtpRequest(BaseModel):
+    phone: str
+
+
+class VerifyOtpSignupRequest(BaseModel):
+    name: str
+    phone: str
+    otp: str
+
+
+class VerifyPhoneRequest(BaseModel):
+    user_id: str
+    phone: str
+    otp: str
+
+
+class PhoneLoginRequest(BaseModel):
+    phone: str
+    otp: str
