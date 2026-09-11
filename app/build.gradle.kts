@@ -108,8 +108,10 @@ dependencies {
     // WebRTC
     implementation("io.getstream:stream-webrtc-android:1.2.0")
 
-    // Google Sign-In
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    // Google Sign-In (Credential Manager API)
+    implementation("androidx.credentials:credentials:1.5.0-rc01")
+    implementation("androidx.credentials:credentials-play-services-auth:1.5.0-rc01")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Testing
     testImplementation(libs.junit)
@@ -117,4 +119,7 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.compose.ui.test)
+
+    implementation("com.msg91.lib:sendotp:1.0.0")
+
 }

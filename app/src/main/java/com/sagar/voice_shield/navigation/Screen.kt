@@ -3,6 +3,7 @@ package com.sagar.voice_shield.navigation
 sealed class Screen(val route: String) {
     data object Login : Screen("login")
     data object Register : Screen("register")
+    data object OtpAuth : Screen("otp_auth")
     data object Recents : Screen("recents")
     data object Favorites : Screen("favorites")
     data object Keypad : Screen("keypad")

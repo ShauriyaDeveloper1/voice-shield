@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,8 @@ import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.service.VoipCallState
 import com.sagar.voice_shield.ui.theme.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -181,6 +184,116 @@ fun ActiveCallScreen(
     // Show model active popup banner state
     var showModelActivePopup by remember { mutableStateOf(true) }
     var isMuted by remember { mutableStateOf(false) }
+
+    // Spam reporting and detection state
+    var isSpamCaller by remember { mutableStateOf(false) }
+    var spamReportCount by remember { mutableIntStateOf(0) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var selectedReason by remember { mutableStateOf("AI Voice Clone / Impersonation Scam") }
+    val coroutineScope = rememberCoroutineScope()
+
+    val rawDigits = remember(callerPhone) { callerPhone.filter { it.isDigit() } }
+    LaunchedEffect(rawDigits) {
+        if (rawDigits.length >= 7) {
+            try {
+                val res = appContainer.api.checkSpam(rawDigits)
+                isSpamCaller = res.isSpam
+                spamReportCount = res.reportCount
+            } catch (_: Exception) {
+                // Ignore network errors on background check
+            }
+        }
+    }
+
+    // Report Number Dialog
+    if (showReportDialog) {
+        val reasons = listOf(
+            "AI Voice Clone / Impersonation Scam",
+            "OTP / Banking Fraud Attempt",
+            "Robocall / Automated Telemarketing",
+            "Harassment or Threat"
+        )
+        AlertDialog(
+            onDismissRequest = { showReportDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Filled.ReportProblem, null, tint = VsError)
+                    Text("Report Caller", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = VsOnSurface)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Report $callerPhone as spam or fraud. Numbers with 20+ community reports are marked globally as SPAM for all VoiceShield users.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VsOnSurfaceVariant
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text("Select reason:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = VsOnSurface)
+                    reasons.forEach { reason ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedReason = reason }
+                                .padding(vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = (selectedReason == reason),
+                                onClick = { selectedReason = reason },
+                                colors = RadioButtonDefaults.colors(selectedColor = VsError)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(reason, style = MaterialTheme.typography.bodySmall, color = VsOnSurface)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                val userId = appContainer.preferencesManager.userId.first() ?: "user_${System.currentTimeMillis()}"
+                                val response = appContainer.api.reportNumber(
+                                    com.sagar.voice_shield.data.remote.dto.ReportNumberRequest(
+                                        reporterUserId = userId,
+                                        reportedPhone = rawDigits,
+                                        reason = selectedReason
+                                    )
+                                )
+                                spamReportCount = response.reportCount
+                                isSpamCaller = response.isSpam
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Report submitted! Total reports: ${response.reportCount}",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            } catch (e: Exception) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Report failed: ${e.message ?: "Network error"}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                showReportDialog = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = VsError)
+                ) {
+                    Text("Submit Report", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReportDialog = false }) {
+                    Text("Cancel", color = VsOnSurfaceVariant)
+                }
+            },
+            containerColor = VsSurfaceContainerHigh
+        )
+    }
 
     // 4-5 Audio Chunks Analysis Confirmation Dialog
     if (aiConfirmation != null) {
@@ -494,6 +607,29 @@ fun ActiveCallScreen(
                 Text(callerName, style = MaterialTheme.typography.headlineMedium, color = VsOnSurface, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(2.dp))
                 Text(callerPhone, style = MaterialTheme.typography.bodyMedium, color = VsOnSurfaceVariant)
+
+                if (isSpamCaller || spamReportCount >= 20) {
+                    Spacer(Modifier.height(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = VsError.copy(alpha = 0.18f),
+                        border = BorderStroke(1.dp, VsError)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Filled.ReportProblem, null, tint = VsError, modifier = Modifier.size(14.dp))
+                            Text(
+                                "COMMUNITY SPAM ($spamReportCount REPORTS)",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold),
+                                color = VsError,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -597,7 +733,7 @@ fun ActiveCallScreen(
                     Text(if (isMuted) "Unmute" else "Mute", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
                 }
 
-                Spacer(Modifier.width(56.dp))
+                Spacer(Modifier.width(36.dp))
 
                 // End call
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -618,6 +754,23 @@ fun ActiveCallScreen(
                     }
                     Spacer(Modifier.height(6.dp))
                     Text(if (isEnded) "Ended" else "End", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
+                }
+
+                Spacer(Modifier.width(36.dp))
+
+                // Report Spam
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    IconButton(
+                        onClick = { showReportDialog = true },
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .background(VsSurfaceContainerHigh)
+                    ) {
+                        Icon(Icons.Filled.Flag, "Report Spam", tint = VsError)
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text("Report", style = MaterialTheme.typography.labelSmall, color = VsError)
                 }
             }
         }

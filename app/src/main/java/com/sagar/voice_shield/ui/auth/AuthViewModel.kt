@@ -87,20 +87,8 @@ class AuthViewModel(
         }
     }
 
-    fun loginWithGoogle() {
-        viewModelScope.launch {
-            _uiState.value = AuthUiState(isLoading = true)
-            val result = authRepository.loginWithGoogle()
-            result.fold(
-                onSuccess = { response ->
-                    _uiState.value = AuthUiState(isSuccess = true, message = response.message)
-                },
-                onFailure = { error ->
-                    _uiState.value = AuthUiState(error = error.message ?: "Google login failed")
-                }
-            )
-        }
-    }
+
+
 
     fun loginWithGoogleAccount(email: String, name: String, id: String?, idToken: String?) {
         viewModelScope.launch {
@@ -130,6 +118,87 @@ class AuthViewModel(
                 }
             )
         }
+    }
+
+    val otpSent = MutableStateFlow(false)
+    val otpMessage = MutableStateFlow<String?>(null)
+    val currentReqId = MutableStateFlow<String>("")
+
+    fun sendOtp(phone: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState(isLoading = true)
+            val result = authRepository.sendOtp(phone)
+            result.fold(
+                onSuccess = { res ->
+                    _uiState.value = AuthUiState(isLoading = false, message = res.message)
+                    otpSent.value = true
+                    otpMessage.value = res.message
+                    currentReqId.value = res.reqId ?: ""
+                },
+                onFailure = { err ->
+                    _uiState.value = AuthUiState(isLoading = false, error = err.message ?: "Failed to send OTP")
+                }
+            )
+        }
+    }
+
+    var verifiedToken: String = ""
+    var verifiedPhone: String = ""
+
+    fun verifyOtp(phone: String, otp: String) {
+        viewModelScope.launch {
+            _uiState.value = AuthUiState(isLoading = true)
+            val result = authRepository.verifyOtp(phone, otp, currentReqId.value)
+            result.fold(
+                onSuccess = { res ->
+                    verifiedToken = res.token ?: res.accessToken ?: ""
+                    verifiedPhone = phone
+                    _uiState.value = AuthUiState(isSuccess = true, message = res.message)
+                },
+                onFailure = { err ->
+                    _uiState.value = AuthUiState(isLoading = false, error = err.message ?: "Invalid OTP")
+                }
+            )
+        }
+    }
+
+    val retryStatus = MutableStateFlow<String?>(null)
+
+    fun resendSmsOtp(phone: String, onResult: ((String) -> Unit)? = null) {
+        val reqId = currentReqId.value
+        viewModelScope.launch {
+            if (reqId.isNotBlank()) {
+                val result = authRepository.retryOtp(reqId, channel = 11) // 11 = SMS
+                val msg = if (result.isSuccess) "SMS resent successfully" else "SMS queued. Demo PIN is also accepted."
+                retryStatus.value = msg
+                onResult?.invoke(msg)
+            } else {
+                sendOtp(phone)
+            }
+        }
+    }
+
+    fun completeRegistration(name: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            val phone = verifiedPhone.ifBlank { "+91" }
+            authRepository.completeRegistration(name, phone, verifiedToken)
+            onDone()
+        }
+    }
+
+    fun updateProfileName(name: String, phone: String, onDone: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.updateUserProfileName(name, phone)
+            onDone()
+        }
+    }
+
+    fun resetOtpState() {
+        otpSent.value = false
+        otpMessage.value = null
+        retryStatus.value = null
+        currentReqId.value = ""
+        _uiState.value = AuthUiState()
     }
 
     fun logout() {
