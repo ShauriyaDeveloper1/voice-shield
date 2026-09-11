@@ -46,6 +46,17 @@ data class ConfirmProfileResponse(
     val profile: ProfileDto? = null
 )
 
+data class GoogleAuthRequest(
+    @SerializedName("access_token") val accessToken: String? = null,
+    @SerializedName("id_token") val idToken: String? = null,
+    @SerializedName("provider_token") val providerToken: String? = null
+)
+
+data class GoogleAuthResponse(
+    val message: String,
+    val user: UserDto
+)
+
 // ── User DTOs ──
 data class UserDto(
     val id: String,

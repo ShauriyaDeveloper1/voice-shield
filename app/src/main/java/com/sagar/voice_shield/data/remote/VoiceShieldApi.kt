@@ -23,6 +23,9 @@ interface VoiceShieldApi {
     @POST("api/auth/confirm-profile")
     suspend fun confirmProfile(@Body request: ConfirmProfileRequest): ConfirmProfileResponse
 
+    @POST("api/auth/google")
+    suspend fun googleAuth(@Body request: GoogleAuthRequest): GoogleAuthResponse
+
     // ── Calls ──
     @POST("api/calls/")
     suspend fun createCall(@Body request: CreateCallRequest): CallResponse

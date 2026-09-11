@@ -16,12 +16,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import com.sagar.voice_shield.VoiceShieldApp
 import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.ui.theme.*
 
 @Composable
 fun KeypadScreen(navController: NavController) {
+    val context = LocalContext.current
+    val appContainer = (context.applicationContext as VoiceShieldApp).appContainer
     var phoneNumber by remember { mutableStateOf("") }
 
     Column(
@@ -104,7 +108,11 @@ fun KeypadScreen(navController: NavController) {
                 Button(
                     onClick = {
                         if (phoneNumber.isNotBlank()) {
-                            navController.navigate(Screen.ActiveCall.createRoute(phone = phoneNumber, name = "Outgoing Call"))
+                            appContainer.voipCallManager.initiateCall(phoneNumber, "Outgoing Call")
+                            navController.navigate(Screen.ActiveCall.createRoute(phone = phoneNumber, name = "Outgoing Call")) {
+                                launchSingleTop = true
+                            }
+
                         }
                     },
                     modifier = Modifier.size(64.dp),

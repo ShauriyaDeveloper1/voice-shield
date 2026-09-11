@@ -4,6 +4,7 @@ import com.google.gson.JsonParser
 import com.sagar.voice_shield.data.local.PreferencesManager
 import com.sagar.voice_shield.data.remote.VoiceShieldApi
 import com.sagar.voice_shield.data.remote.dto.*
+import kotlinx.coroutines.flow.firstOrNull
 import retrofit2.HttpException
 
 class AuthRepository(
@@ -139,18 +140,77 @@ class AuthRepository(
     }
 
     suspend fun loginWithGoogle(
-        email: String = "user@voiceshield.app",
+        email: String = "user@voiceshield.ai",
         name: String = "Google User",
         googleId: String? = null,
-        idToken: String? = null
+        idToken: String? = null,
+        phone: String? = null
     ): Result<LoginResponse> {
         val resolvedId = if (!googleId.isNullOrBlank()) "google-$googleId" else "google-${java.util.UUID.randomUUID().toString().take(8)}"
-        val resolvedName = if (name.isNotBlank()) name else email.substringBefore("@")
+        val resolvedName = if (name.isNotBlank() && name != "Google User") {
+            name
+        } else {
+            val handle = email.substringBefore("@")
+            handle.replace(".", " ")
+                .replace("_", " ")
+                .split(" ")
+                .filter { it.isNotBlank() }
+                .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+                .ifBlank { "Google User" }
+        }
+
+        val resolvedPhone = phone?.ifBlank { null } ?: ""
+
+        var finalName = resolvedName
+        var finalPhone = resolvedPhone
+        var finalId = resolvedId
+
+        // 1. Try real Google ID token verification via backend /api/auth/google
+        if (!idToken.isNullOrBlank()) {
+            try {
+                val googleResp = api.googleAuth(com.sagar.voice_shield.data.remote.dto.GoogleAuthRequest(idToken = idToken))
+                val u = googleResp.user
+                val finalId = u.id ?: resolvedId
+                val finalName = u.name ?: resolvedName
+                val finalPhone = u.phone ?: resolvedPhone
+                val token = "session-$finalId"
+                prefs.saveLoginData(
+                    token = token,
+                    id = finalId,
+                    name = finalName,
+                    email = u.email ?: email,
+                    phone = finalPhone
+                )
+                return Result.success(LoginResponse(googleResp.message, token, u))
+            } catch (e: Exception) {
+                android.util.Log.w("AUTH_REPO", "Backend googleAuth verification info: ${e.message}")
+            }
+        }
+
+        // 2. Synchronize profile with backend database
+        try {
+            val confirmResp = api.confirmProfile(
+                ConfirmProfileRequest(
+                    id = resolvedId,
+                    email = email,
+                    name = resolvedName,
+                    phone = resolvedPhone
+                )
+            )
+            confirmResp.profile?.let { p ->
+                if (!p.name.isNullOrBlank()) finalName = p.name
+                if (!p.phone.isNullOrBlank()) finalPhone = p.phone
+                if (!p.id.isNullOrBlank()) finalId = p.id
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("AUTH_REPO", "Backend confirmProfile info: ${e.message}")
+        }
+
         val googleUser = UserDto(
-            id = resolvedId,
-            name = resolvedName,
+            id = finalId,
+            name = finalName,
             email = email,
-            phone = "+91 90840 04968"
+            phone = finalPhone
         )
         val token = idToken ?: "google-token-${googleUser.id}"
         prefs.saveLoginData(
@@ -160,7 +220,7 @@ class AuthRepository(
             email = googleUser.email,
             phone = googleUser.phone
         )
-        return Result.success(LoginResponse("Signed in with Google", token, googleUser))
+        return Result.success(LoginResponse("Signed in with Google ($email)", token, googleUser))
     }
 
     suspend fun logout() {

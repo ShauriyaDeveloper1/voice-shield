@@ -18,6 +18,8 @@
     <!-- Foreground Service -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <!-- Full screen intent & Wake lock for incoming calls -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
@@ -29,6 +31,9 @@
 
     <!-- Boot receiver for auto-start protection -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Phone state for incoming cellular call detection -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
     <application
         android:name=".VoiceShieldApp"
@@ -68,8 +73,28 @@
         <service
             android:name=".service.VoipForegroundService"
             android:exported="false"
-            android:foregroundServiceType="microphone" />
+            android:foregroundServiceType="phoneCall" />
+
+        <!-- Incoming Cellular Call Detection Receiver -->
+        <receiver
+            android:name=".receiver.PhoneCallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Universal Call Notification Listener (WhatsApp, Telegram, Truecaller, etc.) -->
+        <service
+            android:name=".service.CallNotificationListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
     </application>
+
 
 </manifest>

@@ -191,6 +191,22 @@ logs/
 models/weights/
 models/xlm-roberta*/
 
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
 # ===========================
 # Datasets & Local Data
 # ===========================
@@ -209,3 +225,4 @@ aasist/LA/
 # Code Atlas
 # ===========================
 .codeatlas/
+**/.codeatlas/

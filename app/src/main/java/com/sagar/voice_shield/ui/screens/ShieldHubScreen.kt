@@ -60,17 +60,19 @@ fun ShieldHubScreen(navController: NavController) {
                             label = "rotation"
                         )
 
+                        val secColor = VsSecondary
+                        val priColor = VsPrimary
                         Canvas(modifier = Modifier.fillMaxSize()) {
                             val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
                             drawArc(
-                                color = VsSecondary.copy(alpha = 0.3f),
+                                color = secColor.copy(alpha = 0.3f),
                                 startAngle = 0f, sweepAngle = 360f,
                                 useCenter = false, style = stroke,
                                 topLeft = Offset(8f, 8f),
                                 size = Size(size.width - 16f, size.height - 16f)
                             )
                             drawArc(
-                                brush = Brush.sweepGradient(listOf(VsSecondary, VsPrimary, VsSecondary)),
+                                brush = Brush.sweepGradient(listOf(secColor, priColor, secColor)),
                                 startAngle = rotation, sweepAngle = 120f,
                                 useCenter = false, style = stroke,
                                 topLeft = Offset(8f, 8f),

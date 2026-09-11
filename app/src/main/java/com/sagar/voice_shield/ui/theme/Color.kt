@@ -1,74 +1,220 @@
 package com.sagar.voice_shield.ui.theme
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
 
 // ──────────────────────────────────────────────
-// VoiceShield Dark Theme — Stitch Design Tokens
+// VoiceShield Dynamic Theme Tokens
 // ──────────────────────────────────────────────
 
 // Surface & Background
-val VsBackground = Color(0xFF10131A)
-val VsSurface = Color(0xFF10131A)
-val VsSurfaceDim = Color(0xFF10131A)
-val VsSurfaceBright = Color(0xFF363941)
-val VsSurfaceContainer = Color(0xFF1D1F27)
-val VsSurfaceContainerLow = Color(0xFF191B23)
-val VsSurfaceContainerHigh = Color(0xFF272A32)
-val VsSurfaceContainerHighest = Color(0xFF32353D)
-val VsSurfaceContainerLowest = Color(0xFF0B0E15)
-val VsSurfaceVariant = Color(0xFF32353D)
+val VsBackground: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.background
 
-// Primary — Cyan
-val VsPrimary = Color(0xFF4CD7F6)
-val VsPrimaryContainer = Color(0xFF06B6D4)
-val VsOnPrimary = Color(0xFF003640)
-val VsOnPrimaryContainer = Color(0xFF00424F)
-val VsPrimaryFixed = Color(0xFFACEDFF)
-val VsPrimaryFixedDim = Color(0xFF4CD7F6)
-val VsInversePrimary = Color(0xFF00687A)
+val VsSurface: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surface
 
-// Secondary — Green
-val VsSecondary = Color(0xFF4EDEA3)
-val VsSecondaryContainer = Color(0xFF00A572)
-val VsOnSecondary = Color(0xFF003824)
-val VsOnSecondaryContainer = Color(0xFF00311F)
-val VsSecondaryFixed = Color(0xFF6FFBBE)
-val VsSecondaryFixedDim = Color(0xFF4EDEA3)
+val VsSurfaceDim: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceDim
 
-// Tertiary — Peach/Coral
-val VsTertiary = Color(0xFFFFB3AD)
-val VsTertiaryContainer = Color(0xFFFF817A)
-val VsOnTertiary = Color(0xFF68000A)
-val VsOnTertiaryContainer = Color(0xFF7E000F)
-val VsTertiaryFixed = Color(0xFFFFDAD7)
-val VsTertiaryFixedDim = Color(0xFFFFB3AD)
+val VsSurfaceBright: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceBright
 
-// Error — Red
-val VsError = Color(0xFFFFB4AB)
-val VsErrorContainer = Color(0xFF93000A)
-val VsOnError = Color(0xFF690005)
-val VsOnErrorContainer = Color(0xFFFFDAD6)
+val VsSurfaceContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainer
+
+val VsSurfaceContainerLow: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainerLow
+
+val VsSurfaceContainerHigh: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainerHigh
+
+val VsSurfaceContainerHighest: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainerHighest
+
+val VsSurfaceContainerLowest: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainerLowest
+
+val VsSurfaceVariant: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceVariant
+
+// Primary
+val VsPrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.primary
+
+val VsPrimaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.primaryContainer
+
+val VsOnPrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onPrimary
+
+val VsOnPrimaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onPrimaryContainer
+
+val VsInversePrimary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.inversePrimary
+
+// Secondary
+val VsSecondary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.secondary
+
+val VsSecondaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.secondaryContainer
+
+val VsOnSecondary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSecondary
+
+val VsOnSecondaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSecondaryContainer
+
+// Tertiary
+val VsTertiary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.tertiary
+
+val VsTertiaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.tertiaryContainer
+
+val VsOnTertiary: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onTertiary
+
+val VsOnTertiaryContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onTertiaryContainer
+
+// Error
+val VsError: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.error
+
+val VsErrorContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.errorContainer
+
+val VsOnError: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onError
+
+val VsOnErrorContainer: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onErrorContainer
 
 // On-Surface
-val VsOnSurface = Color(0xFFE1E2EC)
-val VsOnSurfaceVariant = Color(0xFFBCC9CD)
-val VsOnBackground = Color(0xFFE1E2EC)
-val VsInverseOnSurface = Color(0xFF2D3038)
-val VsInverseSurface = Color(0xFFE1E2EC)
+val VsOnSurface: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurface
+
+val VsOnSurfaceVariant: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurfaceVariant
+
+val VsOnBackground: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onBackground
+
+val VsInverseOnSurface: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.inverseOnSurface
+
+val VsInverseSurface: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.inverseSurface
 
 // Outline
-val VsOutline = Color(0xFF869397)
-val VsOutlineVariant = Color(0xFF3D494C)
+val VsOutline: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.outline
 
-// Surface Tint
-val VsSurfaceTint = Color(0xFF4CD7F6)
+val VsOutlineVariant: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.outlineVariant
 
-// Scrim
-val VsScrim = Color(0xFF000000)
+// Surface Tint & Scrim
+val VsSurfaceTint: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceTint
 
-// ──────────────────────────────
-// Functional / Semantic Colors
-// ──────────────────────────────
+val VsScrim: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.scrim
+
+// Dynamic Card, Input, and Border Helpers
+val VsDarkCardBg: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainer
+
+val VsInputFieldBg: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceContainerHigh
+
+val VsInputBorder: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.outlineVariant
+
+// Static Accent & Semantic Colors
+val VsTealAccent = Color(0xFF00FFB2)
 val VsSafe = Color(0xFF4EDEA3)
 val VsWarning = Color(0xFFFFB3AD)
 val VsDanger = Color(0xFFFF6B6B)
@@ -76,7 +222,7 @@ val VsHighRisk = Color(0xFFFF4444)
 val VsMediumRisk = Color(0xFFFFB74D)
 val VsLowRisk = Color(0xFF4EDEA3)
 
-// Gradient colors
+// Static Gradient colors
 val VsGradientStart = Color(0xFF06B6D4)
 val VsGradientEnd = Color(0xFF4CD7F6)
 val VsGradientAccent = Color(0xFF4EDEA3)

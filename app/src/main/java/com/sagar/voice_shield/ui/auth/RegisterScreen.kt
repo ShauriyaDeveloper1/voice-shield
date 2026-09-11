@@ -3,10 +3,9 @@ package com.sagar.voice_shield.ui.auth
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,7 +13,10 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +27,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
-import com.sagar.voice_shield.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,6 +35,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sagar.voice_shield.R
 import com.sagar.voice_shield.VoiceShieldApp
 import com.sagar.voice_shield.ui.theme.*
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -53,6 +55,7 @@ fun RegisterScreen(
 
     val gso = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestIdToken("846997243859-0jjs99qi5odj4e98ckndf2rtrvp1u04o.apps.googleusercontent.com")
             .requestEmail()
             .requestProfile()
             .build()
@@ -60,26 +63,81 @@ fun RegisterScreen(
     val googleSignInClient = remember {
         GoogleSignIn.getClient(context, gso)
     }
+
+    val accountPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { accountResult ->
+        if (accountResult.resultCode == android.app.Activity.RESULT_OK && accountResult.data != null) {
+            val selectedEmail = accountResult.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+            if (!selectedEmail.isNullOrBlank()) {
+                val derivedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .replace("_", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                viewModel.loginWithGoogleAccount(
+                    email = selectedEmail,
+                    name = derivedName,
+                    id = selectedEmail.hashCode().toString(),
+                    idToken = null
+                )
+                container.voipCallManager.updateMyCredentials(phone = "", name = derivedName)
+            }
+        }
+    }
+
     val googleLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        var handled = false
         try {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
             val account = task.getResult(ApiException::class.java)
             if (account != null) {
-                val email = account.email ?: "google.user@voiceshield.app"
-                val name = account.displayName ?: "Google User"
+                val email = account.email ?: "user@voiceshield.ai"
+                val name = account.displayName ?: email.substringBefore("@")
                 viewModel.loginWithGoogleAccount(
                     email = email,
                     name = name,
                     id = account.id,
                     idToken = account.idToken
                 )
-            } else {
-                viewModel.loginWithGoogle()
+                container.voipCallManager.updateMyCredentials(phone = "", name = name)
+                handled = true
             }
         } catch (e: Exception) {
-            viewModel.loginWithGoogle()
+            android.util.Log.w("AUTH_GOOGLE", "GoogleSignIn native failed: ${e.message}")
+            try {
+                val chooseAccountIntent = android.accounts.AccountManager.newChooseAccountIntent(
+                    null, null, arrayOf("com.google"), null, null, null, null
+                )
+                accountPickerLauncher.launch(chooseAccountIntent)
+                handled = true
+            } catch (ex: Exception) {
+                android.util.Log.e("AUTH_GOOGLE", "AccountPicker fallback failed", ex)
+            }
+        }
+
+        if (!handled && result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
+            val selectedEmail = result.data?.getStringExtra(android.accounts.AccountManager.KEY_ACCOUNT_NAME)
+            if (!selectedEmail.isNullOrBlank()) {
+                val derivedName = selectedEmail.substringBefore("@")
+                    .replace(".", " ")
+                    .replace("_", " ")
+                    .split(" ")
+                    .filter { it.isNotBlank() }
+                    .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+
+                viewModel.loginWithGoogleAccount(
+                    email = selectedEmail,
+                    name = derivedName,
+                    id = selectedEmail.hashCode().toString(),
+                    idToken = null
+                )
+                container.voipCallManager.updateMyCredentials(phone = "", name = derivedName)
+            }
         }
     }
 
@@ -105,21 +163,21 @@ fun RegisterScreen(
     }
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = VsTealAccent,
+        focusedBorderColor = VsPrimary,
         unfocusedBorderColor = VsInputBorder,
         focusedContainerColor = VsInputFieldBg,
         unfocusedContainerColor = VsInputFieldBg,
-        cursorColor = VsTealAccent,
-        focusedTextColor = Color.White,
-        unfocusedTextColor = Color.White,
-        focusedPlaceholderColor = Color(0xFF6B7280),
-        unfocusedPlaceholderColor = Color(0xFF6B7280)
+        cursorColor = VsPrimary,
+        focusedTextColor = VsOnSurface,
+        unfocusedTextColor = VsOnSurface,
+        focusedPlaceholderColor = VsOnSurfaceVariant.copy(alpha = 0.6f),
+        unfocusedPlaceholderColor = VsOnSurfaceVariant.copy(alpha = 0.6f)
     )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0B0E14)),
+            .background(VsBackground),
         contentAlignment = Alignment.Center
     ) {
         Card(
@@ -151,7 +209,7 @@ fun RegisterScreen(
                     )
                     Text(
                         "VoiceShield",
-                        color = Color.White,
+                        color = VsOnSurface,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -161,29 +219,48 @@ fun RegisterScreen(
 
                 Text(
                     "Create account",
-                    color = Color.White,
+                    color = VsOnSurface,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     "Monitor calls and keep conversations safer.",
-                    color = Color(0xFF9AA4B2),
+                    color = VsOnSurfaceVariant,
                     fontSize = 13.sp
                 )
 
                 Spacer(modifier = Modifier.height(22.dp))
 
-                // Continue with Google Button at the top (Matches Image 2)
+                // Continue with Google Button at the top
                 OutlinedButton(
-                    onClick = { googleLauncher.launch(googleSignInClient.signInIntent) },
+                    onClick = {
+                        try {
+                            googleLauncher.launch(googleSignInClient.signInIntent)
+                        } catch (e: Exception) {
+                            try {
+                                val intent = android.accounts.AccountManager.newChooseAccountIntent(
+                                    null,
+                                    null,
+                                    arrayOf("com.google"),
+                                    null,
+                                    null,
+                                    null,
+                                    null
+                                )
+                                googleLauncher.launch(intent)
+                            } catch (e2: Exception) {
+                                android.util.Log.e("AUTH_GOOGLE", "Failed launching account chooser", e2)
+                            }
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = VsInputFieldBg,
-                        contentColor = Color.White
+                        contentColor = VsOnSurface
                     ),
                     border = BorderStroke(1.dp, VsInputBorder)
                 ) {
@@ -193,7 +270,7 @@ fun RegisterScreen(
                     ) {
                         GoogleLogoIcon()
                         Spacer(Modifier.width(10.dp))
-                        Text("Continue with Google", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text("Continue with Google", color = VsOnSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                     }
                 }
 
@@ -208,7 +285,7 @@ fun RegisterScreen(
                     Text(
                         "OR",
                         modifier = Modifier.padding(horizontal = 14.dp),
-                        color = Color(0xFF8B949E),
+                        color = VsOnSurfaceVariant,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -240,7 +317,7 @@ fun RegisterScreen(
                         "FULL NAME",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B949E),
+                        color = VsOnSurfaceVariant,
                         letterSpacing = 1.sp
                     )
                     Spacer(Modifier.height(6.dp))
@@ -259,13 +336,13 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // EMAIL ADDRESS with Verify button (Matches Image 2)
+                // EMAIL ADDRESS with Verify button
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         "EMAIL ADDRESS",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B949E),
+                        color = VsOnSurfaceVariant,
                         letterSpacing = 1.sp
                     )
                     Spacer(Modifier.height(6.dp))
@@ -294,8 +371,8 @@ fun RegisterScreen(
                             enabled = email.contains("@"),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF2563EB),
-                                contentColor = Color.White
+                                containerColor = VsPrimaryContainer,
+                                contentColor = VsOnPrimaryContainer
                             ),
                             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
                         ) {
@@ -306,13 +383,13 @@ fun RegisterScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // MOBILE NUMBER (IN +91 selector + phone input) (Matches Image 2)
+                // MOBILE NUMBER (IN +91 selector + phone input)
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
                         "MOBILE NUMBER",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B949E),
+                        color = VsOnSurfaceVariant,
                         letterSpacing = 1.sp
                     )
                     Spacer(Modifier.height(6.dp))
@@ -332,8 +409,8 @@ fun RegisterScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                Text("IN +91", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Icon(Icons.Filled.ArrowDropDown, null, tint = Color(0xFF8B949E), modifier = Modifier.size(18.dp))
+                                Text("IN +91", color = VsOnSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Filled.ArrowDropDown, null, tint = VsOnSurfaceVariant, modifier = Modifier.size(18.dp))
                             }
                         }
 
@@ -360,7 +437,7 @@ fun RegisterScreen(
                         "PASSWORD",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8B949E),
+                        color = VsOnSurfaceVariant,
                         letterSpacing = 1.sp
                     )
                     Spacer(Modifier.height(6.dp))
@@ -373,7 +450,7 @@ fun RegisterScreen(
                                 Icon(
                                     if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                     null,
-                                    tint = Color(0xFF8B949E)
+                                    tint = VsOnSurfaceVariant
                                 )
                             }
                         },
@@ -407,14 +484,14 @@ fun RegisterScreen(
                     enabled = name.isNotBlank() && email.isNotBlank() && password.isNotBlank() && !uiState.isLoading,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = VsTealAccent,
-                        contentColor = Color(0xFF0B0E14),
-                        disabledContainerColor = VsTealAccent.copy(alpha = 0.4f),
-                        disabledContentColor = Color(0xFF0B0E14).copy(alpha = 0.6f)
+                        containerColor = VsPrimary,
+                        contentColor = VsOnPrimary,
+                        disabledContainerColor = VsPrimary.copy(alpha = 0.4f),
+                        disabledContentColor = VsOnPrimary.copy(alpha = 0.6f)
                     )
                 ) {
                     if (uiState.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color(0xFF0B0E14), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = VsOnPrimary, strokeWidth = 2.dp)
                     } else {
                         Text("Create account", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
@@ -424,10 +501,10 @@ fun RegisterScreen(
 
                 // Footer link
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Already have an account? ", color = Color(0xFF9AA4B2), fontSize = 13.sp)
+                    Text("Already have an account? ", color = VsOnSurfaceVariant, fontSize = 13.sp)
                     Text(
                         "Sign in",
-                        color = VsTealAccent,
+                        color = VsPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable { onNavigateToLogin() }
