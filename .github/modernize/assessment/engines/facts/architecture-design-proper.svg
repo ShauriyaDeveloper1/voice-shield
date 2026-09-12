@@ -1,0 +1,212 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1600" viewBox="0 0 1800 1600" role="img" aria-labelledby="title desc">
+  <title id="title">VoiceShield Proper Architecture Flows</title>
+  <desc id="desc">Clean separated architecture flows for server audio analysis, live call monitoring, persistence, and deployment. Each flow uses direct non-crossing arrows.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8fbfc"/>
+      <stop offset="1" stop-color="#edf4f5"/>
+    </linearGradient>
+    <linearGradient id="teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d97706"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#203b43" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#42616b"/>
+    </marker>
+    <marker id="arrowWhite" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#b9d8d7"/>
+    </marker>
+    <style>
+      .title { font: 700 36px 'Segoe UI', sans-serif; fill: #17343d; }
+      .subtitle { font: 400 16px 'Segoe UI', sans-serif; fill: #607b82; }
+      .panelTitle { font: 700 19px 'Segoe UI', sans-serif; fill: #ffffff; }
+      .panelSub { font: 400 13px 'Segoe UI', sans-serif; fill: #d8efed; }
+      .heading { font: 700 17px 'Segoe UI', sans-serif; fill: #17343d; }
+      .body { font: 400 13px 'Segoe UI', sans-serif; fill: #58737b; }
+      .small { font: 400 12px 'Segoe UI', sans-serif; fill: #6c858d; }
+      .label { font: 600 12px 'Segoe UI', sans-serif; fill: #42616b; }
+      .panel { fill: #ffffff; stroke: #cfdee1; stroke-width: 2; filter: url(#shadow); }
+      .card { fill: #ffffff; stroke: #c5d8dc; stroke-width: 2; filter: url(#shadow); }
+      .blue { fill: #f4f8ff; stroke: #a9c3ee; stroke-width: 2; filter: url(#shadow); }
+      .purple { fill: #faf7ff; stroke: #cbb8ee; stroke-width: 2; filter: url(#shadow); }
+      .green { fill: #f2fbf8; stroke: #9bc9c1; stroke-width: 2; filter: url(#shadow); }
+      .gold { fill: #fff8ee; stroke: #e9bd79; stroke-width: 2; filter: url(#shadow); }
+      .database { fill: #fffaf0; stroke: #e3b866; stroke-width: 2; filter: url(#shadow); }
+      .line { fill: none; stroke: #42616b; stroke-width: 2.5; marker-end: url(#arrow); }
+      .lineWhite { fill: none; stroke: #b9d8d7; stroke-width: 2.5; marker-end: url(#arrowWhite); }
+      .lineDash { fill: none; stroke: #8ba8af; stroke-width: 2.2; stroke-dasharray: 8 6; marker-end: url(#arrow); }
+      .divider { stroke: #d6e4e7; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1600" fill="url(#page)"/>
+  <circle cx="1650" cy="70" r="170" fill="#dcefeb" opacity="0.6"/>
+  <circle cx="100" cy="1510" r="190" fill="#e8eef5" opacity="0.7"/>
+
+  <text x="70" y="70" class="title">VoiceShield Architecture Design</text>
+  <text x="70" y="103" class="subtitle">Separated workflows for readable system analysis - every flow has its own direct path</text>
+  <line x1="70" y1="132" x2="1730" y2="132" class="divider"/>
+
+  <!-- Panel A -->
+  <rect x="70" y="170" width="800" height="760" rx="20" class="panel"/>
+  <rect x="70" y="170" width="800" height="82" rx="20" fill="url(#orange)"/>
+  <text x="105" y="208" class="panelTitle">FLOW A - SERVER AUDIO ANALYSIS</text>
+  <text x="105" y="232" class="panelSub">Used by web upload and Android remote analysis</text>
+
+  <rect x="145" y="290" width="650" height="90" rx="14" class="blue"/>
+  <text x="180" y="327" class="heading">1. Client sends audio</text>
+  <text x="180" y="353" class="body">React or Android uploads multipart audio to POST /api/analysis/upload</text>
+  <path d="M470 380 L470 424" class="line"/>
+  <text x="488" y="408" class="label">multipart request</text>
+
+  <rect x="145" y="425" width="650" height="90" rx="14" class="gold"/>
+  <text x="180" y="462" class="heading">2. FastAPI prepares the audio</text>
+  <text x="180" y="488" class="body">UploadFile is written to a temporary file and passed to AudioService</text>
+  <path d="M470 515 L470 559" class="line"/>
+  <text x="488" y="543" class="label">process_audio()</text>
+
+  <rect x="145" y="560" width="300" height="126" rx="14" class="gold"/>
+  <text x="175" y="597" class="heading">3A. Primary path</text>
+  <text x="175" y="624" class="body">Hugging Face Space</text>
+  <text x="175" y="648" class="body">AASIST inference</text>
+  <text x="175" y="672" class="body">Deepfake score and label</text>
+
+  <rect x="495" y="560" width="300" height="126" rx="14" class="card"/>
+  <text x="525" y="597" class="heading">3B. Fallback path</text>
+  <text x="525" y="624" class="body">Librosa and SoundFile</text>
+  <text x="525" y="648" class="body">RMS and spectral features</text>
+  <text x="525" y="672" class="body">Used if hosted AI fails</text>
+
+  <path d="M295 686 L295 730" class="line"/>
+  <path d="M645 686 L645 730" class="line"/>
+  <path d="M295 730 L470 730" class="line"/>
+  <path d="M645 730 L470 730" class="line"/>
+  <text x="488" y="718" class="label">feature signals</text>
+
+  <rect x="145" y="735" width="650" height="90" rx="14" fill="url(#teal)" filter="url(#shadow)"/>
+  <text x="180" y="772" class="panelTitle">4. RiskEngine calculates result</text>
+  <text x="180" y="798" class="panelSub">0.40 deepfake + 0.25 speaker mismatch + 0.15 prosody + 0.20 context</text>
+  <path d="M470 825 L470 869" class="line"/>
+  <text x="488" y="853" class="label">score and severity</text>
+
+  <rect x="145" y="870" width="650" height="38" rx="12" class="green"/>
+  <text x="180" y="896" class="heading">5. Return score, severity, explanations, and alert decision</text>
+
+  <!-- Panel B -->
+  <rect x="930" y="170" width="800" height="760" rx="20" class="panel"/>
+  <rect x="930" y="170" width="800" height="82" rx="20" fill="url(#teal)"/>
+  <text x="965" y="208" class="panelTitle">FLOW B - LIVE CALL MONITORING</text>
+  <text x="965" y="232" class="panelSub">WebRTC media and Android foreground protection run separately</text>
+
+  <rect x="1005" y="290" width="650" height="90" rx="14" class="blue"/>
+  <text x="1040" y="327" class="heading">1. Call begins</text>
+  <text x="1040" y="353" class="body">Web client or Android app creates a call through POST /api/calls/</text>
+  <path d="M1330 380 L1330 424" class="line"/>
+  <text x="1348" y="408" class="label">call signaling</text>
+
+  <rect x="1005" y="425" width="310" height="126" rx="14" class="green"/>
+  <text x="1035" y="462" class="heading">2A. Web transport</text>
+  <text x="1035" y="489" class="body">WebSocket signaling</text>
+  <text x="1035" y="513" class="body">WebRTC peer connection</text>
+  <text x="1035" y="537" class="body">Browser microphone audio</text>
+
+  <rect x="1345" y="425" width="310" height="126" rx="14" class="purple"/>
+  <text x="1375" y="462" class="heading">2B. Android transport</text>
+  <text x="1375" y="489" class="body">Phone call receiver</text>
+  <text x="1375" y="513" class="body">Foreground audio service</text>
+  <text x="1375" y="537" class="body">16 kHz microphone capture</text>
+
+  <path d="M1160 551 L1160 596" class="line"/>
+  <path d="M1500 551 L1500 596" class="line"/>
+  <text x="1178" y="579" class="label">peer media</text>
+  <text x="1518" y="579" class="label">local audio</text>
+
+  <rect x="1005" y="600" width="310" height="126" rx="14" class="green"/>
+  <text x="1035" y="637" class="heading">3A. Web call state</text>
+  <text x="1035" y="664" class="body">CallContext updates UI state</text>
+  <text x="1035" y="688" class="body">ICE uses Google STUN</text>
+  <text x="1035" y="712" class="body">History saved in localStorage</text>
+
+  <rect x="1345" y="600" width="310" height="126" rx="14" class="purple"/>
+  <text x="1375" y="637" class="heading">3B. Android local analysis</text>
+  <text x="1375" y="664" class="body">ProsodyAnalyzer extracts signals</text>
+  <text x="1375" y="688" class="body">RiskEngine computes score locally</text>
+  <text x="1375" y="712" class="body">StateFlow drives notifications</text>
+
+  <path d="M1160 726 L1160 771" class="line"/>
+  <path d="M1500 726 L1500 771" class="line"/>
+  <text x="1178" y="754" class="label">display result</text>
+  <text x="1518" y="754" class="label">offline capable</text>
+
+  <rect x="1005" y="775" width="650" height="90" rx="14" fill="url(#teal)" filter="url(#shadow)"/>
+  <text x="1040" y="812" class="panelTitle">4. User receives protection feedback</text>
+  <text x="1040" y="838" class="panelSub">Risk score, severity, explanations, alert banner, notification, and call history</text>
+  <text x="1040" y="858" class="panelSub">Android can continue local scoring when network access is unavailable</text>
+
+  <rect x="1005" y="880" width="650" height="28" rx="10" class="green"/>
+  <text x="1040" y="899" class="heading">5. Optional server persistence through call analysis endpoint</text>
+
+  <!-- Panel C -->
+  <rect x="70" y="990" width="1660" height="430" rx="20" class="panel"/>
+  <rect x="70" y="990" width="1660" height="82" rx="20" fill="#7c3aed"/>
+  <text x="105" y="1028" class="panelTitle">FLOW C - PERSISTENCE, ALERTS, AND DELIVERY</text>
+  <text x="105" y="1052" class="panelSub">Durable records, local caches, external providers, and deployment boundaries</text>
+
+  <rect x="115" y="1110" width="350" height="180" rx="14" class="card"/>
+  <text x="145" y="1147" class="heading">API repository adapter</text>
+  <text x="145" y="1176" class="body">Creates IDs and timestamps</text>
+  <text x="145" y="1201" class="body">Supabase when configured</text>
+  <text x="145" y="1226" class="body">In-memory fallback for local dev</text>
+  <text x="145" y="1251" class="body">Writes calls and analysis records</text>
+  <path d="M465 1200 L535 1200" class="line"/>
+  <text x="480" y="1185" class="label">CRUD</text>
+
+  <rect x="535" y="1110" width="350" height="180" rx="14" class="database"/>
+  <ellipse cx="710" cy="1130" rx="145" ry="20" fill="#fff2d4" stroke="#e3b866" stroke-width="2"/>
+  <text x="590" y="1170" class="heading">Supabase PostgreSQL</text>
+  <text x="590" y="1198" class="body">profiles and calls</text>
+  <text x="590" y="1223" class="body">call_analysis and alerts</text>
+  <text x="590" y="1248" class="body">contacts, reports, OTP records</text>
+  <path d="M885 1200 L955 1200" class="line"/>
+  <text x="900" y="1185" class="label">query results</text>
+
+  <rect x="955" y="1110" width="350" height="180" rx="14" class="green"/>
+  <text x="985" y="1147" class="heading">Client response and alert</text>
+  <text x="985" y="1176" class="body">MEDIUM and HIGH create alerts</text>
+  <text x="985" y="1201" class="body">Web dashboard reads analytics</text>
+  <text x="985" y="1226" class="body">Android shows notification</text>
+  <text x="985" y="1251" class="body">Room and localStorage retain history</text>
+  <path d="M1305 1200 L1375 1200" class="line"/>
+  <text x="1320" y="1185" class="label">services</text>
+
+  <rect x="1375" y="1110" width="300" height="180" rx="14" class="card"/>
+  <text x="1405" y="1147" class="heading">External delivery</text>
+  <text x="1405" y="1176" class="body">MSG91: production OTP</text>
+  <text x="1405" y="1201" class="body">Vercel: React frontend</text>
+  <text x="1405" y="1226" class="body">Render: FastAPI backend</text>
+  <text x="1405" y="1251" class="body">Hugging Face: AI endpoint</text>
+
+  <rect x="115" y="1330" width="1560" height="52" rx="14" fill="#f4f8ff" stroke="#a9c3ee" stroke-width="2"/>
+  <text x="145" y="1363" class="heading">Key design principle:</text>
+  <text x="335" y="1363" class="body">live media, AI inference, durable records, and local fallback are separate paths that converge only at the risk result.</text>
+
+  <!-- Legend -->
+  <line x1="70" y1="1470" x2="1730" y2="1470" class="divider"/>
+  <text x="70" y="1510" class="heading">Legend</text>
+  <line x1="160" y1="1504" x2="235" y2="1504" class="line"/>
+  <text x="250" y="1510" class="small">direct request or processing flow</text>
+  <line x1="505" y1="1504" x2="580" y2="1504" class="lineDash"/>
+  <text x="595" y="1510" class="small">local cache, optional, or alternate path</text>
+  <rect x="890" y="1489" width="20" height="20" rx="5" fill="#0f766e"/>
+  <text x="925" y="1510" class="small">decision or application service</text>
+  <rect x="1170" y="1489" width="20" height="20" rx="5" fill="#d97706"/>
+  <text x="1205" y="1510" class="small">AI or audio processing</text>
+  <text x="70" y="1570" class="small">VoiceShield | Clean detailed architecture | No cross-panel arrows</text>
+</svg>

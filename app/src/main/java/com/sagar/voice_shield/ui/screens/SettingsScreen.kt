@@ -222,7 +222,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Filled.Code,
                 title = "Backend Status",
-                subtitle = "voice-shield-backend-7xpl.onrender.com"
+                subtitle = "voice-shield-hqyg.onrender.com"
             ) {
                 showBackendStatusDialog = true
             }

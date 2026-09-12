@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1180" viewBox="0 0 1800 1180" role="img" aria-labelledby="title desc">
+  <title id="title">VoiceShield Architecture Design</title>
+  <desc id="desc">Architecture design showing React and Android clients, FastAPI services, hosted and local AI analysis, Supabase persistence, WebRTC, deployment platforms, and the main call analysis workflow.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f7fafc"/>
+      <stop offset="1" stop-color="#eef4f7"/>
+    </linearGradient>
+    <linearGradient id="api" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+    <linearGradient id="ai" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d97706"/>
+      <stop offset="1" stop-color="#b45309"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#19313a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#42616b"/>
+    </marker>
+    <marker id="arrowLight" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#9bb7bd"/>
+    </marker>
+    <style>
+      .title { font: 700 34px 'Segoe UI', sans-serif; fill: #17343d; letter-spacing: 0; }
+      .subtitle { font: 400 16px 'Segoe UI', sans-serif; fill: #54717a; letter-spacing: 0; }
+      .section { font: 700 15px 'Segoe UI', sans-serif; fill: #41636d; letter-spacing: 1px; }
+      .nodeTitle { font: 700 17px 'Segoe UI', sans-serif; fill: #17343d; letter-spacing: 0; }
+      .nodeText { font: 400 13px 'Segoe UI', sans-serif; fill: #54717a; letter-spacing: 0; }
+      .whiteTitle { font: 700 17px 'Segoe UI', sans-serif; fill: #ffffff; letter-spacing: 0; }
+      .whiteText { font: 400 13px 'Segoe UI', sans-serif; fill: #d6fffa; letter-spacing: 0; }
+      .label { font: 600 12px 'Segoe UI', sans-serif; fill: #42616b; letter-spacing: 0; }
+      .small { font: 400 12px 'Segoe UI', sans-serif; fill: #6c858d; letter-spacing: 0; }
+      .node { fill: #ffffff; stroke: #c5d8dc; stroke-width: 2; filter: url(#shadow); }
+      .external { fill: #f5fbfa; stroke: #9bc9c1; stroke-width: 2; filter: url(#shadow); }
+      .data { fill: #fffaf1; stroke: #e8bf75; stroke-width: 2; filter: url(#shadow); }
+      .line { fill: none; stroke: #42616b; stroke-width: 2.5; marker-end: url(#arrow); }
+      .lineLight { fill: none; stroke: #9bb7bd; stroke-width: 2; stroke-dasharray: 7 6; marker-end: url(#arrowLight); }
+      .divider { stroke: #d6e4e7; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <rect width="1800" height="1180" fill="url(#bg)"/>
+  <circle cx="1660" cy="80" r="150" fill="#dcefeb" opacity="0.55"/>
+  <circle cx="80" cy="1120" r="190" fill="#e8eef5" opacity="0.7"/>
+
+  <text x="70" y="72" class="title">VoiceShield Architecture Design</text>
+  <text x="70" y="103" class="subtitle">Multi-client voice security platform with live call protection, risk scoring, and AI anti-spoofing</text>
+  <line x1="70" y1="132" x2="1730" y2="132" class="divider"/>
+
+  <!-- Layer headings -->
+  <text x="95" y="174" class="section">CLIENTS</text>
+  <text x="455" y="174" class="section">APPLICATION SERVICES</text>
+  <text x="870" y="174" class="section">AI AND SIGNAL ANALYSIS</text>
+  <text x="1290" y="174" class="section">DATA AND EXTERNAL SERVICES</text>
+
+  <!-- Clients -->
+  <rect x="70" y="205" width="280" height="116" rx="14" class="node"/>
+  <rect x="70" y="205" width="8" height="116" rx="4" fill="#2563eb"/>
+  <text x="96" y="242" class="nodeTitle">React Web Dashboard</text>
+  <text x="96" y="268" class="nodeText">React 19 and Vite</text>
+  <text x="96" y="290" class="nodeText">Calls, analytics, contacts, auth</text>
+
+  <rect x="70" y="355" width="280" height="116" rx="14" class="node"/>
+  <rect x="70" y="355" width="8" height="116" rx="4" fill="#7c3aed"/>
+  <text x="96" y="392" class="nodeTitle">Android Companion App</text>
+  <text x="96" y="418" class="nodeText">Kotlin and Jetpack Compose</text>
+  <text x="96" y="440" class="nodeText">Native call monitoring and alerts</text>
+
+  <rect x="70" y="505" width="280" height="116" rx="14" class="external"/>
+  <text x="96" y="542" class="nodeTitle">Browser Call Transport</text>
+  <text x="96" y="568" class="nodeText">WebRTC peer audio</text>
+  <text x="96" y="590" class="nodeText">Microphone and remote audio</text>
+
+  <!-- Application services -->
+  <rect x="430" y="205" width="350" height="190" rx="16" fill="url(#api)" filter="url(#shadow)"/>
+  <text x="460" y="245" class="whiteTitle">FastAPI Backend</text>
+  <text x="460" y="271" class="whiteText">REST API and WebSocket signaling</text>
+  <line x1="460" y1="291" x2="748" y2="291" stroke="#69cfc1" opacity="0.6"/>
+  <text x="460" y="321" class="whiteText">Auth, calls, users, contacts, reports</text>
+  <text x="460" y="347" class="whiteText">Audio upload and call analysis routes</text>
+  <text x="460" y="373" class="whiteText">CORS, validation, request orchestration</text>
+
+  <rect x="430" y="435" width="350" height="150" rx="16" class="node"/>
+  <text x="460" y="475" class="nodeTitle">Risk and Persistence Services</text>
+  <text x="460" y="503" class="nodeText">Weighted risk engine</text>
+  <text x="460" y="527" class="nodeText">Severity: LOW, MEDIUM, HIGH</text>
+  <text x="460" y="551" class="nodeText">Repository adapter and alert creation</text>
+
+  <rect x="430" y="625" width="350" height="120" rx="16" class="external"/>
+  <text x="460" y="665" class="nodeTitle">Live Call Signaling</text>
+  <text x="460" y="691" class="nodeText">WebSocket phone registration</text>
+  <text x="460" y="715" class="nodeText">Call offers, answers, and ICE candidates</text>
+
+  <!-- AI -->
+  <rect x="835" y="205" width="350" height="155" rx="16" fill="url(#ai)" filter="url(#shadow)"/>
+  <text x="865" y="245" class="whiteTitle">Hosted AASIST Inference</text>
+  <text x="865" y="273" class="whiteText">Hugging Face Space endpoint</text>
+  <text x="865" y="301" class="whiteText">Audio anti-spoofing prediction</text>
+  <text x="865" y="329" class="whiteText">Deepfake score and model label</text>
+
+  <rect x="835" y="400" width="350" height="145" rx="16" class="node"/>
+  <text x="865" y="440" class="nodeTitle">Backend Audio Processing</text>
+  <text x="865" y="468" class="nodeText">Temporary audio file handling</text>
+  <text x="865" y="494" class="nodeText">Librosa, SoundFile, and NumPy</text>
+  <text x="865" y="520" class="nodeText">Fallback when hosted inference fails</text>
+
+  <rect x="835" y="585" width="350" height="145" rx="16" class="external"/>
+  <text x="865" y="625" class="nodeTitle">Android On-Device Analysis</text>
+  <text x="865" y="653" class="nodeText">Foreground microphone service</text>
+  <text x="865" y="679" class="nodeText">Prosody analyzer and local risk engine</text>
+  <text x="865" y="705" class="nodeText">Works during network interruption</text>
+
+  <!-- Data and external -->
+  <path d="M1320 230 C1320 214 1340 202 1360 202 L1650 202 C1670 202 1690 214 1690 230 L1690 302 C1690 318 1670 330 1650 330 L1360 330 C1340 330 1320 318 1320 302 Z" class="data"/>
+  <ellipse cx="1505" cy="230" rx="185" ry="28" fill="#fff5df" stroke="#e8bf75" stroke-width="2"/>
+  <text x="1380" y="266" class="nodeTitle">Supabase PostgreSQL</text>
+  <text x="1380" y="293" class="nodeText">Profiles, calls, analyses, alerts</text>
+  <text x="1380" y="315" class="nodeText">Auth, contacts, reports, OTP records</text>
+
+  <rect x="1320" y="380" width="370" height="118" rx="14" class="node"/>
+  <text x="1350" y="418" class="nodeTitle">Client Local Storage</text>
+  <text x="1350" y="446" class="nodeText">Android Room call history</text>
+  <text x="1350" y="472" class="nodeText">Browser local call history</text>
+
+  <rect x="1320" y="545" width="370" height="118" rx="14" class="external"/>
+  <text x="1350" y="583" class="nodeTitle">WebRTC and Google STUN</text>
+  <text x="1350" y="611" class="nodeText">Peer media transport and ICE discovery</text>
+  <text x="1350" y="637" class="nodeText">Separate from durable REST data</text>
+
+  <rect x="1320" y="710" width="370" height="118" rx="14" class="external"/>
+  <text x="1350" y="748" class="nodeTitle">MSG91 OTP Provider</text>
+  <text x="1350" y="776" class="nodeText">Production phone verification</text>
+  <text x="1350" y="802" class="nodeText">Development fallback when unavailable</text>
+
+  <!-- Edges -->
+  <path d="M350 263 C380 263 390 263 430 263" class="line"/>
+  <text x="368" y="250" class="label">REST</text>
+  <path d="M350 413 C380 413 390 343 430 343" class="line"/>
+  <text x="361" y="384" class="label">Retrofit</text>
+  <path d="M350 563 C390 563 390 685 430 685" class="line"/>
+  <text x="364" y="626" class="label">signaling</text>
+
+  <path d="M780 285 C805 285 810 285 835 285" class="line"/>
+  <text x="785" y="270" class="label">audio</text>
+  <path d="M780 510 C805 510 810 472 835 472" class="line"/>
+  <text x="785" y="490" class="label">features</text>
+  <path d="M780 685 C805 685 810 655 835 655" class="line"/>
+  <text x="785" y="666" class="label">device audio</text>
+
+  <path d="M1010 360 L1010 400" class="line"/>
+  <text x="1023" y="385" class="label">predict</text>
+  <path d="M1185 472 C1230 472 1270 272 1320 272" class="line"/>
+  <text x="1220" y="375" class="label">persist</text>
+  <path d="M780 510 C1000 510 1070 439 1320 439" class="lineLight"/>
+  <text x="1028" y="485" class="label">local cache</text>
+  <path d="M780 685 C1040 685 1080 604 1320 604" class="line"/>
+  <text x="1050" y="650" class="label">peer audio</text>
+  <path d="M780 685 C1000 685 1100 769 1320 769" class="lineLight"/>
+  <text x="1010" y="735" class="label">OTP</text>
+
+  <!-- Workflow strip -->
+  <rect x="70" y="875" width="1620" height="218" rx="18" fill="#17343d" filter="url(#shadow)"/>
+  <text x="105" y="920" class="whiteTitle">Primary Analysis Workflow</text>
+  <text x="105" y="948" class="whiteText">Call audio moves through one of two analysis paths, then converges on risk scoring and durable alert storage.</text>
+
+  <g transform="translate(105,980)">
+    <circle cx="24" cy="24" r="23" fill="#2563eb"/>
+    <text x="18" y="30" fill="#fff" font-family="Segoe UI" font-size="16" font-weight="700">1</text>
+    <text x="62" y="19" class="whiteTitle">Capture</text>
+    <text x="62" y="43" class="whiteText">Browser or Android audio</text>
+  </g>
+  <path d="M330 1004 L385 1004" stroke="#9bb7bd" stroke-width="2" marker-end="url(#arrowLight)"/>
+  <g transform="translate(405,980)">
+    <circle cx="24" cy="24" r="23" fill="#d97706"/>
+    <text x="18" y="30" fill="#fff" font-family="Segoe UI" font-size="16" font-weight="700">2</text>
+    <text x="62" y="19" class="whiteTitle">Analyze</text>
+    <text x="62" y="43" class="whiteText">AASIST or local signals</text>
+  </g>
+  <path d="M630 1004 L685 1004" stroke="#9bb7bd" stroke-width="2" marker-end="url(#arrowLight)"/>
+  <g transform="translate(705,980)">
+    <circle cx="24" cy="24" r="23" fill="#0f766e"/>
+    <text x="18" y="30" fill="#fff" font-family="Segoe UI" font-size="16" font-weight="700">3</text>
+    <text x="62" y="19" class="whiteTitle">Score</text>
+    <text x="62" y="43" class="whiteText">Weighted risk and severity</text>
+  </g>
+  <path d="M930 1004 L985 1004" stroke="#9bb7bd" stroke-width="2" marker-end="url(#arrowLight)"/>
+  <g transform="translate(1005,980)">
+    <circle cx="24" cy="24" r="23" fill="#b45309"/>
+    <text x="18" y="30" fill="#fff" font-family="Segoe UI" font-size="16" font-weight="700">4</text>
+    <text x="62" y="19" class="whiteTitle">Persist</text>
+    <text x="62" y="43" class="whiteText">Analysis and alerts</text>
+  </g>
+  <path d="M1230 1004 L1285 1004" stroke="#9bb7bd" stroke-width="2" marker-end="url(#arrowLight)"/>
+  <g transform="translate(1305,980)">
+    <circle cx="24" cy="24" r="23" fill="#7c3aed"/>
+    <text x="18" y="30" fill="#fff" font-family="Segoe UI" font-size="16" font-weight="700">5</text>
+    <text x="62" y="19" class="whiteTitle">Respond</text>
+    <text x="62" y="43" class="whiteText">Dashboard and notification</text>
+  </g>
+
+  <text x="70" y="1140" class="small">VoiceShield | Architecture design | Based on repository implementation and configuration</text>
+</svg>
