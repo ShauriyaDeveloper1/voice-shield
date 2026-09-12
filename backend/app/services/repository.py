@@ -21,20 +21,20 @@ _memory: dict[str, list[dict]] = {
 
 
 def _client() -> Client | None:
-    url = settings.supabase_url
-    key = settings.supabase_key or settings.supabase_anon_key
-    if not url or not key or create_client is None:
+    url = settings.clean_supabase_url
+    key = settings.supabase_service_role_key or settings.supabase_key or settings.supabase_anon_key
+    if not url or not key:
+        print("[Repository Warning] Supabase URL or Key is missing. Falling back to local mock memory.")
         return None
-    # Sanitize URL if it contains REST API path suffix
-    if url.endswith("/rest/v1/"):
-        url = url[:-9]
-    elif url.endswith("/rest/v1"):
-        url = url[:-8]
+    if create_client is None:
+        print("[Repository Warning] Supabase package not installed. Falling back to local mock memory.")
+        return None
     try:
         return create_client(url, key)
     except Exception as e:
-        print(f"Failed to create Supabase client: {e}")
+        print(f"[Repository Error] Failed to create Supabase client: {e}")
         return None
+
 
 
 def insert(table: str, values: dict) -> dict:

@@ -78,3 +78,10 @@ class VerifyPhoneRequest(BaseModel):
 class PhoneLoginRequest(BaseModel):
     phone: str
     otp: str
+
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+    name: str | None = None
+

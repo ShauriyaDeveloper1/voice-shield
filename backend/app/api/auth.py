@@ -10,7 +10,8 @@ from app.models.schemas import (
     SendOtpRequest, 
     VerifyOtpSignupRequest, 
     VerifyPhoneRequest, 
-    PhoneLoginRequest
+    PhoneLoginRequest,
+    VerifyOtpRequest
 )
 from app.services.repository import _client, insert, find_by, update
 from app.services.otp_service import send_otp, verify_otp, normalize_phone
@@ -90,19 +91,53 @@ async def send_verification(req: VerificationRequest):
 
 @router.post("/confirm-profile")
 async def confirm_profile(req: ConfirmProfileRequest):
-    existing = find_by("profiles", "id", req.id)
-    if existing:
-        return {"message": "Profile already exists", "profile": existing[0]}
-    
-    existing_by_email = find_by("profiles", "email", req.email)
-    if existing_by_email:
-        return {"message": "Profile already exists", "profile": existing_by_email[0]}
+    client = _client()
+    if client and req.phone:
+        try:
+            rpc_resp = client.rpc("register_phone_user", {
+                "phone_input": normalize_phone(req.phone),
+                "name_input": req.name or ""
+            }).execute()
+            if rpc_resp.data:
+                return {"message": "Profile confirmed", "profile": rpc_resp.data}
+        except Exception as rpc_err:
+            print(f"[Auth Error] confirm_profile RPC notice: {rpc_err}")
 
+    # Check if ID exists and is valid UUID
+    if req.id and not req.id.startswith("user_"):
+        existing = find_by("profiles", "id", req.id)
+        if existing:
+            if req.name and req.name != existing[0].get("name"):
+                try:
+                    update("profiles", req.id, {"name": req.name})
+                    existing[0]["name"] = req.name
+                except Exception:
+                    pass
+            return {"message": "Profile already exists", "profile": existing[0]}
+
+    if req.phone:
+        existing_by_phone = find_by("profiles", "phone", normalize_phone(req.phone))
+        if existing_by_phone:
+            if req.name and req.name != existing_by_phone[0].get("name"):
+                try:
+                    update("profiles", existing_by_phone[0]["id"], {"name": req.name})
+                    existing_by_phone[0]["name"] = req.name
+                except Exception:
+                    pass
+            return {"message": "Profile already exists", "profile": existing_by_phone[0]}
+    
+    if req.email:
+        existing_by_email = find_by("profiles", "email", req.email)
+        if existing_by_email:
+            return {"message": "Profile already exists", "profile": existing_by_email[0]}
+
+    profile_id = req.id if (req.id and not req.id.startswith("user_")) else str(uuid4())
     profile_data = {
-        "id": req.id,
-        "name": req.name or req.email.split("@")[0],
-        "email": req.email,
-        "phone": req.phone or "",
+        "id": profile_id,
+        "name": req.name or (req.email.split("@")[0] if req.email else "User"),
+        "email": req.email or f"phone_{profile_id[:8]}@voiceshield.com",
+        "phone": normalize_phone(req.phone) if req.phone else "",
+        "phone_verified": bool(req.phone),
         "role": "user"
     }
     saved = insert("profiles", profile_data)
@@ -353,8 +388,8 @@ async def google_auth(req: GoogleAuthRequest):
     }
 
 
-<<<<<<< Updated upstream
 @router.post("/otp/send")
+@router.post("/send-otp")
 async def request_otp(req: SendOtpRequest):
     """Send an OTP code to user's phone via MSG91 (or dev fallback)."""
     if not req.phone or len(req.phone.strip()) < 7:
@@ -404,14 +439,41 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             "user": user
         }
 
-    # Generate new user
+    # Connect to Supabase
     client = _client()
-    user_id = str(uuid4())
     synthetic_email = f"phone_{''.join(ch for ch in formatted_phone if ch.isdigit())}@voiceshield.com"
 
     if client:
         try:
-            # Create in Supabase Auth
+            # Atomic creation in Supabase Auth & public.profiles & user sub-tables via RPC
+            rpc_resp = client.rpc("register_phone_user", {
+                "phone_input": formatted_phone,
+                "name_input": req.name.strip()
+            }).execute()
+
+            if rpc_resp.data:
+                user_data = rpc_resp.data
+                return {
+                    "message": "Account verified and created successfully.",
+                    "access_token": f"token-{user_data.get('id')}",
+                    "user": user_data
+                }
+        except Exception as rpc_err:
+            print(f"[Auth Error] register_phone_user RPC notice: {rpc_err}")
+
+    # Fallback if RPC fails: check if profile already exists or insert manually
+    existing_users = find_by("profiles", "phone", formatted_phone)
+    if existing_users:
+        user = existing_users[0]
+        return {
+            "message": "Account verified and logged in.",
+            "access_token": f"token-{user['id']}",
+            "user": user
+        }
+
+    user_id = str(uuid4())
+    if client:
+        try:
             auth_resp = client.auth.sign_up({
                 "email": synthetic_email,
                 "password": str(uuid4()),
@@ -426,9 +488,8 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             if auth_resp.user:
                 user_id = auth_resp.user.id
         except Exception as auth_err:
-            print(f"[Auth] Supabase auth signup notice: {auth_err}")
+            print(f"[Auth Error] Supabase auth signup notice: {auth_err}")
 
-    # Ensure profile entry exists in public.profiles (triggers create_user_subtables)
     profile_data = {
         "id": user_id,
         "name": req.name.strip(),
@@ -446,7 +507,6 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             "user": saved_profile
         }
     except Exception as e:
-        # Check if already inserted by on_auth_user_created trigger
         existing = find_by("profiles", "id", user_id)
         if existing:
             return {
@@ -456,8 +516,9 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             }
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user profile: {str(e)}"
+            detail=f"Failed to create user profile in Supabase: {str(e)}"
         )
+
 
 
 @router.post("/otp/verify-phone")
@@ -537,147 +598,95 @@ async def login_with_phone_otp(req: PhoneLoginRequest):
         "user": user
     }
 
-# ── MSG91 Phone OTP Authentication ──
-
-class SendOtpRequest(BaseModel):
-    phone: str
-
-
-class VerifyOtpRequest(BaseModel):
-    phone: str
-    otp: str
-
-
-@router.post("/send-otp")
-async def send_otp(req: SendOtpRequest):
-    """Send OTP via MSG91 to phone number."""
-    phone = req.phone.strip()
-    digits = "".join(filter(str.isdigit, phone))
-    if len(digits) < 10:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid phone number. Must contain at least 10 digits."
-        )
-    # Ensure country code (e.g. 91 for India if 10 digits provided)
-    if len(digits) == 10:
-        digits = f"91{digits}"
-
-    auth_key = settings.msg91_auth_key
-    template_id = settings.msg91_template_id
-
-    if auth_key and template_id:
-        try:
-            url = "https://control.msg91.com/api/v5/otp"
-            params = {
-                "template_id": template_id,
-                "mobile": digits,
-                "authkey": auth_key,
-                "otp_length": 4,
-            }
-            if settings.msg91_sender_id:
-                params["sender"] = settings.msg91_sender_id
-
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(url, params=params)
-                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                if resp.status_code != 200 or data.get("type") == "error":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=data.get("message", "Failed to send OTP via MSG91")
-                    )
-                return {
-                    "message": "OTP sent successfully via MSG91",
-                    "phone": f"+{digits}"
-                }
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"MSG91 service error: {str(e)}"
-            )
-    else:
-        # Development fallback mode when MSG91 credentials are not yet entered
-        return {
-            "message": "OTP sent (Dev mode: use '1234')",
-            "phone": f"+{digits}",
-            "dev_mode": True
-        }
-
+# ── Phone OTP Verification (Mobile App & Direct API) ──
 
 @router.post("/verify-otp")
-async def verify_otp(req: VerifyOtpRequest):
-    """Verify OTP and authenticate user by phone number."""
-    phone = req.phone.strip()
-    otp = req.otp.strip()
-    digits = "".join(filter(str.isdigit, phone))
-    if len(digits) == 10:
-        digits = f"91{digits}"
+async def handle_verify_otp(req: VerifyOtpRequest):
+    """
+    Verify OTP for Android mobile app or direct API consumers.
+    Verifies OTP via MSG91/dev fallback, registers or retrieves the user in Supabase Auth & public.profiles,
+    provisions user partition sub-tables via PostgreSQL triggers, and returns the confirmed user with a valid UUID.
+    """
+    if not req.phone or not req.otp:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Phone number and OTP code are required"
+        )
 
-    auth_key = settings.msg91_auth_key
+    formatted_phone = normalize_phone(req.phone)
+    is_valid = verify_otp(formatted_phone, req.otp)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired OTP. Please try again or request a new code."
+        )
 
-    if auth_key:
+    user_name = (req.name.strip() if req.name else None) or f"User {formatted_phone[-4:]}"
+
+    client = _client()
+    if client:
         try:
-            url = "https://control.msg91.com/api/v5/otp/verify"
-            params = {
-                "otp": otp,
-                "mobile": digits,
-                "authkey": auth_key
+            rpc_resp = client.rpc("register_phone_user", {
+                "phone_input": formatted_phone,
+                "name_input": user_name
+            }).execute()
+
+            if rpc_resp.data:
+                user_data = rpc_resp.data
+                token = f"vs_token_{user_data.get('id')}_{uuid4()}"
+                return {
+                    "message": "OTP verified successfully",
+                    "access_token": token,
+                    "token": token,
+                    "user": {
+                        "id": user_data.get("id"),
+                        "name": user_data.get("name", user_name),
+                        "email": user_data.get("email", ""),
+                        "phone": user_data.get("phone", formatted_phone)
+                    }
+                }
+        except Exception as rpc_err:
+            print(f"[Auth Error] register_phone_user RPC error: {rpc_err}")
+
+    # Fallback to local profiles
+    existing_users = find_by("profiles", "phone", formatted_phone)
+    if existing_users:
+        user = existing_users[0]
+        token = f"vs_token_{user['id']}_{uuid4()}"
+        return {
+            "message": "OTP verified successfully",
+            "access_token": token,
+            "token": token,
+            "user": {
+                "id": user["id"],
+                "name": user.get("name", user_name),
+                "email": user.get("email", ""),
+                "phone": user.get("phone", formatted_phone)
             }
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url, params=params)
-                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
-                if resp.status_code != 200 or data.get("type") == "error":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=data.get("message", "Invalid or expired OTP")
-                    )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"MSG91 verification error: {str(e)}"
-            )
-    else:
-        # Dev mode verification: accept "1234"
-        if otp != "1234":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OTP. In dev mode, please use '1234'."
-            )
-
-    # User authenticated via phone
-    formatted_phone = f"+{digits}"
-    user_id = f"user_{digits}"
-
-    existing = find_by("profiles", "phone", formatted_phone)
-    if not existing:
-        existing = find_by("profiles", "id", user_id)
-
-    if existing:
-        user_data = existing[0]
-    else:
-        user_data = {
-            "id": user_id,
-            "name": f"User {digits[-4:]}",
-            "phone": formatted_phone,
-            "email": "",
-            "role": "user"
         }
-        insert("profiles", user_data)
 
+    # If new user and RPC was not available
+    user_id = str(uuid4())
+    user_data = {
+        "id": user_id,
+        "name": user_name,
+        "phone": formatted_phone,
+        "email": f"phone_{''.join(ch for ch in formatted_phone if ch.isdigit())}@voiceshield.com",
+        "phone_verified": True,
+        "role": "user"
+    }
+    saved_profile = insert("profiles", user_data)
     token = f"vs_token_{user_id}_{uuid4()}"
-
     return {
         "message": "OTP verified successfully",
         "access_token": token,
         "token": token,
         "user": {
-            "id": user_data.get("id", user_id),
-            "name": user_data.get("name", f"User {digits[-4:]}"),
-            "phone": user_data.get("phone", formatted_phone),
-            "email": user_data.get("email", "")
+            "id": saved_profile.get("id", user_id),
+            "name": saved_profile.get("name", user_name),
+            "email": saved_profile.get("email", ""),
+            "phone": saved_profile.get("phone", formatted_phone)
         }
     }
+
 

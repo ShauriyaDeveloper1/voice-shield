@@ -50,6 +50,8 @@ def send_otp(phone: str) -> dict:
                 return {
                     "success": True,
                     "message": f"OTP sent successfully to {formatted_phone}",
+                    "phone": formatted_phone,
+                    "reqId": data.get("request_id", ""),
                     "provider": "msg91"
                 }
             else:
@@ -92,6 +94,9 @@ def send_otp(phone: str) -> dict:
     return {
         "success": True,
         "message": f"OTP sent to {formatted_phone} (Dev Mode)",
+        "phone": formatted_phone,
+        "reqId": f"req-{int(time.time()*1000)}",
+        "dev_mode": True,
         "provider": "dev_mock",
         "debug_otp": generated_otp
     }
@@ -126,8 +131,8 @@ def verify_otp(phone: str, otp: str) -> bool:
         except Exception as e:
             print(f"[OTP Service] MSG91 verify exception: {e}")
 
-    # Fallback to dev store or universal sandbox OTP (123456)
-    if input_otp == "123456":
+    # Fallback to dev store or universal sandbox OTPs (1234, 123456, and demo pins)
+    if input_otp in ("1234", "123456", "8965", "4156", "8745"):
         return True
 
     entry = _otp_store.get(formatted_phone)

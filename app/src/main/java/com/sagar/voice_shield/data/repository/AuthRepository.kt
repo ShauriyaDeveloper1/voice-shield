@@ -332,9 +332,20 @@ class AuthRepository(
             }
 
             if (verified) {
-                val userId = "user_${cleanDigits.takeLast(10)}"
-                val userName = "User ${cleanDigits.takeLast(4)}"
-                val token = "msg91-token-${userId}-${System.currentTimeMillis()}"
+                // Call backend verifyOtp to register in Supabase & obtain real UUID & sub-tables
+                var backendUser: UserDto? = null
+                var backendToken: String? = null
+                try {
+                    val response = api.verifyOtp(VerifyOtpRequest(formattedPhone, cleanOtp))
+                    backendUser = response.user
+                    backendToken = response.accessToken ?: response.token
+                } catch (e: Exception) {
+                    Log.w(TAG, "Backend verifyOtp call warning: ${e.message}")
+                }
+
+                val userId = backendUser?.id ?: java.util.UUID.randomUUID().toString()
+                val userName = backendUser?.name?.takeIf { it.isNotBlank() } ?: "User ${cleanDigits.takeLast(4)}"
+                val token = backendToken ?: "token-${userId}-${System.currentTimeMillis()}"
 
                 // We DO NOT set KEY_IS_LOGGED_IN here!
                 // This ensures OtpAuthScreen stays on Step 3 for Full Name input.
@@ -343,15 +354,14 @@ class AuthRepository(
                         message = "Verification successful",
                         token = token,
                         accessToken = token,
-                        user = UserDto(id = userId, name = userName, email = "", phone = formattedPhone)
+                        user = UserDto(id = userId, name = userName, email = backendUser?.email ?: "", phone = formattedPhone)
                     )
                 )
             } else {
                 // Fallback to backend verifyOtp
                 try {
-                    val response = api.verifyOtp(VerifyOtpRequest(phone.trim(), cleanOtp))
+                    val response = api.verifyOtp(VerifyOtpRequest(formattedPhone, cleanOtp))
                     val token = response.accessToken ?: response.token ?: "session-otp-${System.currentTimeMillis()}"
-                    val user = response.user
                     Result.success(response.copy(token = token, accessToken = token))
                 } catch (e: Exception) {
                     Result.failure(Exception(sdkError ?: parseErrorMessage(e)))
@@ -363,42 +373,58 @@ class AuthRepository(
     suspend fun completeRegistration(name: String, phone: String, token: String = "") {
         val cleanDigits = phone.filter { it.isDigit() }
         val formattedPhone = if (cleanDigits.startsWith("91") && cleanDigits.length > 10) "+$cleanDigits" else "+91$cleanDigits"
-        val userId = "user_${cleanDigits.takeLast(10)}"
-        val resolvedToken = if (token.isNotBlank()) token else "msg91-token-${userId}-${System.currentTimeMillis()}"
+        
+        // Retrieve valid UUID or generate one
+        val currentUserId = prefs.getUserId()
+        val userId = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
+            currentUserId
+        } else {
+            java.util.UUID.randomUUID().toString()
+        }
+        val resolvedToken = if (token.isNotBlank()) token else "token-${userId}-${System.currentTimeMillis()}"
 
-        // Now we mark the user as logged in with their actual full name
-        prefs.saveLoginData(
-            token = resolvedToken,
-            id = userId,
-            name = name,
-            email = "",
-            phone = formattedPhone
-        )
-
-        // Synchronize with backend profile
+        var finalUserId = userId
+        // Synchronize with backend profile / Supabase
         try {
-            api.confirmProfile(
+            val resp = api.confirmProfile(
                 ConfirmProfileRequest(
                     id = userId,
-                    email = "$cleanDigits@voiceshield.phone",
+                    email = "phone_${cleanDigits}@voiceshield.com",
                     name = name,
                     phone = formattedPhone
                 )
             )
+            if (!resp.profile?.id.isNullOrBlank()) {
+                finalUserId = resp.profile!!.id
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Backend profile sync info: ${e.message}")
         }
+
+        // Now we mark the user as logged in with their actual full name and verified UUID
+        prefs.saveLoginData(
+            token = resolvedToken,
+            id = finalUserId,
+            name = name,
+            email = "phone_${cleanDigits}@voiceshield.com",
+            phone = formattedPhone
+        )
     }
 
     suspend fun updateUserProfileName(name: String, phone: String) {
         val cleanDigits = phone.filter { it.isDigit() }
-        val userId = "user_${cleanDigits.takeLast(10)}"
+        val currentUserId = prefs.getUserId()
+        val userId = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
+            currentUserId
+        } else {
+            java.util.UUID.randomUUID().toString()
+        }
         prefs.updateUserName(name)
         try {
             api.confirmProfile(
                 ConfirmProfileRequest(
                     id = userId,
-                    email = "$cleanDigits@voiceshield.phone",
+                    email = "phone_${cleanDigits}@voiceshield.com",
                     name = name,
                     phone = if (phone.startsWith("+")) phone else "+$cleanDigits"
                 )
