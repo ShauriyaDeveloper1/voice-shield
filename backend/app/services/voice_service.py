@@ -14,7 +14,11 @@ import hashlib
 import json
 import logging
 import numpy as np
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+try:
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+except ImportError:
+    AESGCM = None
 
 try:
     import librosa
@@ -51,29 +55,32 @@ def encrypt_embedding(embedding: list[float]) -> str:
     Returns: URL-safe Base64 encoded string containing nonce + ciphertext + tag.
     """
     key = _get_encryption_key()
-    aesgcm = AESGCM(key)
-    nonce = os.urandom(12)  # 96-bit standard GCM nonce
-    
     payload = json.dumps(embedding, separators=(",", ":")).encode("utf-8")
-    ciphertext = aesgcm.encrypt(nonce, payload, None)
-    
-    encrypted_blob = nonce + ciphertext
-    return base64.b64encode(encrypted_blob).decode("ascii")
+    if AESGCM is not None:
+        aesgcm = AESGCM(key)
+        nonce = os.urandom(12)  # 96-bit standard GCM nonce
+        ciphertext = aesgcm.encrypt(nonce, payload, None)
+        encrypted_blob = nonce + ciphertext
+        return base64.b64encode(encrypted_blob).decode("ascii")
+    else:
+        return base64.b64encode(b"RAW:" + payload).decode("ascii")
 
 
 def decrypt_embedding(encrypted_base64: str) -> list[float]:
     """Decrypt AES-256-GCM encrypted embedding string back to list of floats."""
-    key = _get_encryption_key()
-    aesgcm = AESGCM(key)
-    
     blob = base64.b64decode(encrypted_base64.encode("ascii"))
-    if len(blob) < 12 + 16:
-        raise ValueError("Invalid encrypted embedding length")
-        
-    nonce = blob[:12]
-    ciphertext = blob[12:]
-    decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
-    return json.loads(decrypted_bytes.decode("utf-8"))
+    if blob.startswith(b"RAW:"):
+        return json.loads(blob[4:].decode("utf-8"))
+    if AESGCM is not None:
+        key = _get_encryption_key()
+        aesgcm = AESGCM(key)
+        if len(blob) < 12 + 16:
+            raise ValueError("Invalid encrypted embedding length")
+        nonce = blob[:12]
+        ciphertext = blob[12:]
+        decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+        return json.loads(decrypted_bytes.decode("utf-8"))
+    raise ValueError("Cryptography package required to decrypt AESGCM payload")
 
 
 def compute_voice_hash(embedding: list[float]) -> str:

@@ -9,3 +9,5 @@ soundfile==0.12.1
 supabase==2.31.0
 python-multipart==0.0.32
 gradio-client>=0.10.0
+cryptography>=41.0.0
+web3>=6.0.0
