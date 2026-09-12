@@ -62,6 +62,10 @@ fun NavGraph(
             FavoritesScreen(navController = navController)
         }
 
+        composable(Screen.Contacts.route) {
+            ContactsScreen(navController = navController)
+        }
+
         composable(Screen.Keypad.route) {
             KeypadScreen(navController = navController)
         }

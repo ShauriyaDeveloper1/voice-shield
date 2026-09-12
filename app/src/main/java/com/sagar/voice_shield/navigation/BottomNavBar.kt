@@ -24,7 +24,7 @@ data class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem(Screen.Favorites.route, "Favorites", Icons.Filled.Star, Icons.Outlined.StarOutline),
     BottomNavItem(Screen.Recents.route, "Recents", Icons.Filled.History, Icons.Outlined.History),
-    BottomNavItem(Screen.Keypad.route, "Keypad", Icons.Filled.Dialpad, Icons.Outlined.Dialpad),
+    BottomNavItem(Screen.Contacts.route, "Contacts", Icons.Filled.Contacts, Icons.Outlined.Contacts),
     BottomNavItem(Screen.ShieldHub.route, "Shield", Icons.Filled.Shield, Icons.Outlined.Shield)
 )
 

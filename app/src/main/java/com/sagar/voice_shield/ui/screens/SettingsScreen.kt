@@ -1,12 +1,19 @@
 package com.sagar.voice_shield.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -28,6 +35,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -73,16 +81,60 @@ fun SettingsScreen(
 
     val credentialManager = remember { CredentialManager.create(context) }
 
+    val syncContactsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            scope.launch {
+                val count = appContainer.contactsSyncManager.syncDeviceContacts()
+                if (count > 0) {
+                    Toast.makeText(context, "Successfully synchronized $count contacts from Google!", Toast.LENGTH_SHORT).show()
+                } else if (count == 0) {
+                    Toast.makeText(context, "All contacts are already up to date!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Failed to read contacts", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            Toast.makeText(context, "Contacts permission required to sync Google contacts", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun syncContactsNow() {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
+            scope.launch {
+                val count = appContainer.contactsSyncManager.syncDeviceContacts()
+                if (count > 0) {
+                    Toast.makeText(context, "Successfully synchronized $count contacts from Google!", Toast.LENGTH_SHORT).show()
+                } else if (count == 0) {
+                    Toast.makeText(context, "All contacts are already up to date!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Unable to read contacts. Please check permissions.", Toast.LENGTH_SHORT).show()
+                }
+            }
+        } else {
+            syncContactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+        }
+    }
+
     fun launchGoogleSync() {
+        if (!currentEmail.isNullOrBlank() && currentEmail != "user@voiceshield.ai") {
+            // Already signed in, directly sync contacts
+            syncContactsNow()
+            return
+        }
+
         scope.launch {
             try {
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setServerClientId(BuildConfig.GOOGLE_CLIENT_ID)
                     .build()
+                val signInOption = GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_CLIENT_ID).build()
 
                 val request = GetCredentialRequest.Builder()
                     .addCredentialOption(googleIdOption)
+                    .addCredentialOption(signInOption)
                     .build()
 
                 val result = credentialManager.getCredential(
@@ -93,18 +145,18 @@ fun SettingsScreen(
                 val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
                 val email = googleIdTokenCredential.id
                 val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
-                val idToken = googleIdTokenCredential.idToken
 
                 val token = prefs.authToken.firstOrNull() ?: ""
                 val id = prefs.userId.firstOrNull() ?: ""
                 prefs.saveLoginData(token, id, name, email, currentPhone)
                 appContainer.voipCallManager.updateMyCredentials(currentPhone ?: "", name)
 
-                android.widget.Toast.makeText(context, "Google account linked: $email. Contacts synchronized!", android.widget.Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Google account linked: $email", Toast.LENGTH_SHORT).show()
+                syncContactsNow()
             } catch (_: GetCredentialCancellationException) {
                 // User cancelled sign-in
             } catch (e: Exception) {
-                android.widget.Toast.makeText(context, "Google Sign-In failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Google Sign-In failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -116,7 +168,21 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        Text("Settings", style = MaterialTheme.typography.headlineMedium, color = VsOnSurface, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = {
+                    if (!navController.popBackStack()) {
+                        navController.navigate(Screen.Recents.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                modifier = Modifier.padding(end = 8.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = VsOnSurface)
+            }
+            Text("Settings", style = MaterialTheme.typography.headlineMedium, color = VsOnSurface, fontWeight = FontWeight.Bold)
+        }
         Spacer(Modifier.height(20.dp))
 
         // Account section

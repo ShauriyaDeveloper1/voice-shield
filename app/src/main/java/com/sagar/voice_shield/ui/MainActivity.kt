@@ -129,7 +129,12 @@ fun VoiceShieldMainApp() {
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        Box(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+        ) {
             NavGraph(
                 navController = navController,
                 isLoggedIn = isLoggedIn
@@ -218,6 +223,7 @@ fun VoiceShieldTopBar(
     val currentLabel = when (currentRoute) {
         Screen.Favorites.route -> "Favorites"
         Screen.Recents.route -> "Recents"
+        Screen.Contacts.route -> "Contacts"
         Screen.Keypad.route -> "Keypad"
         Screen.ShieldHub.route -> "Shield Hub"
         else -> "VoiceShield"
@@ -254,7 +260,12 @@ fun VoiceShieldTopBar(
                     Spacer(Modifier.width(10.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Search contacts & places", style = MaterialTheme.typography.bodyMedium, color = VsOnSurfaceVariant)
+                        Text(
+                            text = if (currentRoute == Screen.Keypad.route) "Dialpad" else "VoiceShield",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = VsOnSurface,
+                            fontWeight = FontWeight.Bold
+                        )
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -266,10 +277,6 @@ fun VoiceShieldTopBar(
                             Text("AI Shield Active", style = MaterialTheme.typography.labelSmall, color = VsSecondary, fontWeight = FontWeight.SemiBold)
                             Text("• $currentLabel", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant.copy(alpha = 0.6f))
                         }
-                    }
-
-                    IconButton(onClick = {}, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Filled.Mic, null, tint = VsOnSurfaceVariant, modifier = Modifier.size(22.dp))
                     }
 
                     IconButton(onClick = onSettingsClick, modifier = Modifier.size(36.dp)) {

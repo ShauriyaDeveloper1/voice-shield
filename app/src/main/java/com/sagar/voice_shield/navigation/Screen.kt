@@ -6,6 +6,7 @@ sealed class Screen(val route: String) {
     data object OtpAuth : Screen("otp_auth")
     data object Recents : Screen("recents")
     data object Favorites : Screen("favorites")
+    data object Contacts : Screen("contacts")
     data object Keypad : Screen("keypad")
     data object ShieldHub : Screen("shield_hub")
     data object ActiveCall : Screen("active_call?phone={phone}&name={name}") {

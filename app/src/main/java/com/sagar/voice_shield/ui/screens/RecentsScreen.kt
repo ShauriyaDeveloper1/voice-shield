@@ -155,12 +155,26 @@ fun RecentsScreen(navController: NavController) {
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(VsBackground),
-        contentPadding = PaddingValues(bottom = 100.dp)
-    ) {
+    Scaffold(
+        containerColor = VsBackground,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate(Screen.Keypad.route) },
+                containerColor = VsPrimary,
+                contentColor = VsOnPrimary,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Filled.Dialpad, contentDescription = "Open Dialpad")
+            }
+        }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(VsBackground),
+            contentPadding = PaddingValues(bottom = 100.dp)
+        ) {
         // Filter Chips
         item {
             LazyRow(
@@ -249,6 +263,7 @@ fun RecentsScreen(navController: NavController) {
             }
         }
     }
+}
 }
 
 @Composable

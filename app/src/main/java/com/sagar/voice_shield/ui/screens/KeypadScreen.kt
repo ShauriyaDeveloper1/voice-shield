@@ -22,6 +22,8 @@ import com.sagar.voice_shield.VoiceShieldApp
 import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.ui.theme.*
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+
 @Composable
 fun KeypadScreen(navController: NavController) {
     val context = LocalContext.current
@@ -36,7 +38,15 @@ fun KeypadScreen(navController: NavController) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = VsOnSurface)
+            }
+            Text("Dialpad", style = MaterialTheme.typography.titleMedium, color = VsOnSurface, fontWeight = FontWeight.SemiBold)
+        }
 
         // Number display
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

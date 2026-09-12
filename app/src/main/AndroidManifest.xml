@@ -35,6 +35,10 @@
     <!-- Phone state for incoming cellular call detection -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Contacts access for Google and device contacts sync -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
+
     <application
         android:name=".VoiceShieldApp"
         android:allowBackup="true"

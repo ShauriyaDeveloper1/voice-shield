@@ -213,7 +213,7 @@ local.properties
 # ===========================
 # Datasets & Local Data
 # ===========================
-data/
+/data/
 local_dataset/
 local_dataset_garystafford/
 

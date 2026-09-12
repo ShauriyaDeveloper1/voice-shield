@@ -64,6 +64,7 @@ class AppContainer(context: Context) {
     val database = com.sagar.voice_shield.data.local.room.VoiceShieldDatabase.getDatabase(context)
     val callHistoryDao = database.callHistoryDao()
     val trustedContactDao = database.trustedContactDao()
+    val contactsSyncManager = com.sagar.voice_shield.data.local.ContactsSyncManager(context, trustedContactDao)
 
     // Repositories
     val authRepository = AuthRepository(api, huggingFaceApi, preferencesManager)

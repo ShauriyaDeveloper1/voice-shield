@@ -41,92 +41,41 @@ fun FavoritesScreen(navController: NavController) {
     var showAddDialog by remember { mutableStateOf(false) }
     var contactToDelete by remember { mutableStateOf<TrustedContactEntity?>(null) }
 
-    // Seed default favorites on first launch if empty
+    // Clean up mock dummy test contacts
     LaunchedEffect(Unit) {
-        if (dao.getContactCount() == 0) {
-            val defaults = listOf(
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Rahul Kumar",
-                    phone = "+91 98765 43210",
-                    relation = "Son",
-                    voiceEnrolled = true,
-                    trustLevel = "HIGH",
-                    lastVerified = "Today"
-                ),
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Priya Sharma",
-                    phone = "+91 88765 43117",
-                    relation = "Wife",
-                    voiceEnrolled = true,
-                    trustLevel = "HIGH",
-                    lastVerified = "Yesterday"
-                ),
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Dr. Mehta",
-                    phone = "+91 98111 22233",
-                    relation = "Doctor",
-                    voiceEnrolled = true,
-                    trustLevel = "MEDIUM",
-                    lastVerified = "3 days ago"
-                ),
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Mom",
-                    phone = "+91 99887 76655",
-                    relation = "Mother",
-                    voiceEnrolled = true,
-                    trustLevel = "HIGH",
-                    lastVerified = "Today"
-                ),
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "ICICI Bank",
-                    phone = "1800 102 2552",
-                    relation = "Bank",
-                    voiceEnrolled = false,
-                    trustLevel = "LOW",
-                    lastVerified = "Never"
-                ),
-                TrustedContactEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Office - HR",
-                    phone = "+91 11223 34455",
-                    relation = "Work",
-                    voiceEnrolled = false,
-                    trustLevel = "LOW",
-                    lastVerified = "Never"
-                )
-            )
-            defaults.forEach { dao.insertContact(it) }
+        val dummyNames = listOf("Rahul Kumar", "Priya Sharma", "Dr. Mehta", "Mom", "ICICI Bank", "Office - HR")
+        scope.launch(Dispatchers.IO) {
+            dao.deleteMockContacts(dummyNames)
         }
     }
 
-    // Dynamic contact flow from Room DB
+    // Dynamic contact flow from Room DB (Favorites only)
     val contactsList by if (searchQuery.isBlank()) {
-        dao.getAllContacts().collectAsState(initial = emptyList())
+        dao.getFavoriteContacts().collectAsState(initial = emptyList())
     } else {
         dao.searchContacts(searchQuery.trim()).collectAsState(initial = emptyList())
     }
 
     Scaffold(
-        containerColor = VsBackground,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { showAddDialog = true },
+                onClick = { navController.navigate(Screen.Keypad.route) },
                 containerColor = VsPrimary,
                 contentColor = VsOnPrimary,
                 shape = CircleShape
             ) {
-                Icon(Icons.Filled.PersonAdd, contentDescription = "Add Contact")
+                Icon(Icons.Filled.Dialpad, contentDescription = "Open Dialpad")
             }
         }
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding),
             contentPadding = PaddingValues(bottom = 96.dp)
         ) {
@@ -160,13 +109,13 @@ fun FavoritesScreen(navController: NavController) {
                             )
                         }
                         IconButton(
-                            onClick = { showAddDialog = true },
+                            onClick = { navController.navigate(Screen.Keypad.route) },
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
                                 .background(VsPrimaryContainer.copy(alpha = 0.2f))
                         ) {
-                            Icon(Icons.Filled.PersonAdd, null, tint = VsPrimary, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Filled.Dialpad, "Dialpad", tint = VsPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -239,10 +188,20 @@ fun FavoritesScreen(navController: NavController) {
                         )
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            if (searchQuery.isNotBlank()) "No contacts match '$searchQuery'" else "No contacts added yet",
+                            if (searchQuery.isNotBlank()) "No favorite contacts match '$searchQuery'" else "No favorite contacts yet\nStar contacts in the Contacts tab to see them here",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = VsOnSurfaceVariant
+                            color = VsOnSurfaceVariant,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = { navController.navigate(Screen.Contacts.route) },
+                            colors = ButtonDefaults.buttonColors(containerColor = VsPrimary)
+                        ) {
+                            Icon(Icons.Filled.Contacts, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Open Contacts Tab")
+                        }
                     }
                 }
             }
