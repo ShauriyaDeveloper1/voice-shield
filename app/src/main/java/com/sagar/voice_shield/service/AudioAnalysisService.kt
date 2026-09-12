@@ -1,9 +1,11 @@
 package com.sagar.voice_shield.service
 
 import android.app.*
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Build
@@ -26,8 +28,8 @@ import com.sagar.voice_shield.VoiceShieldApp
  * Foreground service that captures microphone audio for Speaker Protection Mode.
  * Analyzes acoustic audio from the phone's speaker during third-party calls.
  *
- * Starts in STANDBY mode (no mic recording). Mic capture only begins when
- * CallNotificationListenerService detects an active call.
+ * Starts in STANDBY mode (no mic recording). Mic capture begins when
+ * CallNotificationListenerService or AudioManager detects an active call.
  */
 class AudioAnalysisService : Service() {
 
@@ -58,11 +60,14 @@ class AudioAnalysisService : Service() {
         private val _prosodyScore = MutableStateFlow(0.0)
         val prosodyScore: StateFlow<Double> = _prosodyScore
 
+        private val _speakerSimilarity = MutableStateFlow(0.0)
+        val speakerSimilarity: StateFlow<Double> = _speakerSimilarity
+
         private val _explanations = MutableStateFlow<List<String>>(emptyList())
         val explanations: StateFlow<List<String>> = _explanations
 
         /**
-         * Called by CallNotificationListenerService when a call is detected.
+         * Called when a call is detected.
          * Begins actual microphone recording and analysis.
          */
         fun startAnalysis() {
@@ -70,11 +75,15 @@ class AudioAnalysisService : Service() {
         }
 
         /**
-         * Called by CallNotificationListenerService when a call ends.
+         * Called when a call ends.
          * Stops microphone recording but keeps service alive in standby.
          */
         fun stopAnalysis() {
             _shouldAnalyze.value = false
+        }
+
+        fun toggleAnalysis() {
+            _shouldAnalyze.value = !_shouldAnalyze.value
         }
 
         // Internal flag to signal the analysis coroutine
@@ -83,6 +92,7 @@ class AudioAnalysisService : Service() {
 
     private var audioRecord: AudioRecord? = null
     private var analysisJob: Job? = null
+    private var callDetectionJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private val prosodyAnalyzer = ProsodyAnalyzer()
     private val riskEngine = RiskEngine()
@@ -111,6 +121,7 @@ class AudioAnalysisService : Service() {
 
         // Start the standby loop that waits for _shouldAnalyze signal
         startStandbyLoop()
+        startCallDetectionWatcher()
 
         return START_STICKY
     }
@@ -118,12 +129,56 @@ class AudioAnalysisService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        callDetectionJob?.cancel()
         stopAudioCapture()
         scope.cancel()
         _isRunning.value = false
         _isAnalyzing.value = false
         _shouldAnalyze.value = false
         super.onDestroy()
+    }
+
+    /**
+     * Active OS AudioManager watcher:
+     * When any third-party app (WhatsApp, Meet, Telegram) or cellular call is connected,
+     * Android sets AudioManager.mode to MODE_IN_COMMUNICATION or MODE_IN_CALL.
+     * This guarantees instant detection even if notifications are blocked or delayed.
+     */
+    private fun startCallDetectionWatcher() {
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        callDetectionJob?.cancel()
+        callDetectionJob = scope.launch {
+            var normalCount = 0
+            while (isActive) {
+                try {
+                    val mode = audioManager.mode
+                    val isCallActiveInOs = (mode == AudioManager.MODE_IN_COMMUNICATION || mode == AudioManager.MODE_IN_CALL)
+
+                    if (isCallActiveInOs && !_shouldAnalyze.value) {
+                        Log.i(TAG, "Active call detected via AudioManager.mode ($mode) -> Auto-starting audio analysis")
+                        _shouldAnalyze.value = true
+                        normalCount = 0
+                    } else if (!isCallActiveInOs && _shouldAnalyze.value) {
+                        // Check if notification keys also empty
+                        if (CallNotificationListenerService.activeCallKeys.isEmpty()) {
+                            normalCount++
+                            if (normalCount >= 4) { // 4 seconds grace period
+                                Log.i(TAG, "Call ended confirmed via AudioManager -> Returning to Standby")
+                                _shouldAnalyze.value = false
+                                normalCount = 0
+                            }
+                        } else {
+                            normalCount = 0
+                        }
+                    } else {
+                        normalCount = 0
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error checking AudioManager call mode", e)
+                }
+                delay(1000)
+            }
+        }
     }
 
     /**

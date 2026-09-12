@@ -70,6 +70,10 @@ fun ActiveCallScreen(
     val audioLevel by audioCallEngine.realtimeAudioLevel.collectAsStateWithLifecycle()
     val chunksCount by audioCallEngine.chunksProcessedCount.collectAsStateWithLifecycle()
     val analysisStatusText by audioCallEngine.analysisStatusText.collectAsStateWithLifecycle()
+    val voiceMatchPercent by audioCallEngine.voiceMatchPercent.collectAsStateWithLifecycle()
+    val isBlockchainVerified by audioCallEngine.isBlockchainVerified.collectAsStateWithLifecycle()
+    val multimodalVerdict by audioCallEngine.multimodalVerdict.collectAsStateWithLifecycle()
+    val deepfakeScore by audioCallEngine.deepfakeScore.collectAsStateWithLifecycle()
 
     // Clean Caller Name (strip URL encoding '+' characters)
     val callerName = remember(targetName, activePeerNameState, targetPhone) {
@@ -791,7 +795,7 @@ fun ActiveCallScreen(
         // Analysis feed
         item {
             Text(
-                "AI ANALYSIS",
+                "AI ANALYSIS & BLOCKCHAIN IDENTITY",
                 modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 8.dp),
                 style = MaterialTheme.typography.labelMedium,
                 color = VsOnSurfaceVariant,
@@ -801,9 +805,23 @@ fun ActiveCallScreen(
 
         item {
             AnalysisFeedItem(
-                "Voice Embedding",
-                "Speaker profile consistent with verified calls ($embeddingMatch% match)",
-                if (embeddingMatch > 85) VsSecondary else VsTertiary
+                "Voice Identity (Speaker Match)",
+                "Biometric fingerprint match: $voiceMatchPercent% similarity • ${if (isBlockchainVerified) "Verified On-Chain ✓" else "Offline Identity"}",
+                if (voiceMatchPercent >= 75) VsSecondary else if (voiceMatchPercent >= 50) VsTertiary else VsError
+            )
+        }
+        item {
+            AnalysisFeedItem(
+                "Deepfake Detection (AASIST ZeroGPU)",
+                "Continuous neural vocoder & clone detection: ${String.format(java.util.Locale.US, "%.1f", deepfakeScore * 100)}% AI probability (Running continuously in parallel)",
+                if (deepfakeScore < 0.35) VsSecondary else if (deepfakeScore < 0.70) VsTertiary else VsError
+            )
+        }
+        item {
+            AnalysisFeedItem(
+                "Blockchain Voice Registry",
+                if (isBlockchainVerified) "Voice fingerprint hash verified against smart contract (Version 1)" else "Unverified Voice Commitment",
+                if (isBlockchainVerified) VsSecondary else VsTertiary
             )
         }
         item {
@@ -820,14 +838,6 @@ fun ActiveCallScreen(
                 if (prosodyMatch > 75) "Speaking rhythm natural, below spoofing threshold ($prosodyMatch% naturalness)"
                 else "Unnatural pitch variance and robotic cadence ($prosodyMatch% naturalness)",
                 if (prosodyMatch > 75) VsPrimary else VsError
-            )
-        }
-        item {
-            AnalysisFeedItem(
-                "Conversation Context",
-                if (riskScore < 50) "No requests for OTP, transfers, or passwords"
-                else "Suspicious urgency signals detected in speech stream",
-                if (riskScore < 50) VsSecondary else VsTertiary
             )
         }
 
@@ -853,13 +863,12 @@ fun ActiveCallScreen(
                     )
                     Column {
                         Text(
-                            if (riskScore <= 35) "Safe to continue" else "Threat Warning",
+                            if (riskScore <= 35) "Verified Authentic" else if (riskScore <= 70) "Suspicious Speech Detected" else "CRITICAL THREAT — Voice Clone / Spoof",
                             style = MaterialTheme.typography.titleSmall,
                             color = if (riskScore <= 35) VsSecondary else VsError
                         )
                         Text(
-                            if (riskScore <= 35) "No high-confidence impersonation signal detected"
-                            else "High risk spoofing markers identified. Exercise extreme caution.",
+                            multimodalVerdict,
                             style = MaterialTheme.typography.bodySmall,
                             color = VsOnSurfaceVariant
                         )

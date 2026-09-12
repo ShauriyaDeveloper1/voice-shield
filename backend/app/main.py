@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import analysis, auth, calls, users, contacts, reports
+from app.api import analysis, auth, calls, users, contacts, reports, voice
 
 app = FastAPI(
     title="VoiceShield API",
@@ -23,6 +23,7 @@ app.include_router(analysis.router, prefix="/api/analysis", tags=["analysis"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
 app.include_router(contacts.router, prefix="/api/contacts", tags=["contacts"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
+app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
 
 
 @app.api_route("/", methods=["GET", "HEAD"])

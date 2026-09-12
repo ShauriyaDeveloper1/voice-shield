@@ -95,6 +95,7 @@ fun ShieldHubScreen(navController: NavController) {
     val liveCallRiskScore by appContainer.audioCallEngine.realtimeRiskScore.collectAsStateWithLifecycle()
     val liveAudioLevel by appContainer.audioCallEngine.realtimeAudioLevel.collectAsStateWithLifecycle()
     val liveChunksCount by appContainer.audioCallEngine.chunksProcessedCount.collectAsStateWithLifecycle()
+    val isVoiceEnrolled by appContainer.preferencesManager.isVoiceEnrolled.collectAsStateWithLifecycle(initialValue = false)
 
     val isCallActive = voipCallState != VoipCallState.IDLE && voipCallState != VoipCallState.ENDED
 
@@ -726,6 +727,16 @@ fun ShieldHubScreen(navController: NavController) {
                 statusColor = VsPrimary,
                 icon = Icons.Filled.TextSnippet,
                 detail = "Phishing & Urgency Pattern Detection"
+            )
+        }
+        item {
+            DefenseLayerCard(
+                title = "Blockchain Voice Identity",
+                subtitle = "EVM Tamper-Resistant Registry",
+                status = if (isVoiceEnrolled) "Enrolled & Active" else "Ready to Enroll",
+                statusColor = if (isVoiceEnrolled) VsSecondary else VsTertiary,
+                icon = Icons.Filled.Fingerprint,
+                detail = "Keccak-256 Voice Commitment • Dual Pipeline"
             )
         }
 

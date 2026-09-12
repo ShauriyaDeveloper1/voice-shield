@@ -55,6 +55,11 @@ fun SettingsScreen(
     val currentEmail by prefs.userEmail.collectAsStateWithLifecycle(initialValue = "user@voiceshield.ai")
     val currentPhone by prefs.userPhone.collectAsStateWithLifecycle(initialValue = "+91 98765 43210")
     val currentThemeMode by prefs.themeMode.collectAsStateWithLifecycle(initialValue = "SYSTEM")
+    val isVoiceEnrolled by prefs.isVoiceEnrolled.collectAsStateWithLifecycle(initialValue = false)
+    val voiceHash by prefs.voiceHash.collectAsStateWithLifecycle(initialValue = null)
+    val voiceTxHash by prefs.voiceTxHash.collectAsStateWithLifecycle(initialValue = null)
+    val voiceVersion by prefs.voiceVersion.collectAsStateWithLifecycle(initialValue = 1)
+    val currentUserId by prefs.userId.collectAsStateWithLifecycle(initialValue = null)
 
     // Dialog Visibility States
     var showProfileDialog by remember { mutableStateOf(false) }
@@ -64,6 +69,7 @@ fun SettingsScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showBackendStatusDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
+    var showVoiceIdentityDialog by remember { mutableStateOf(false) }
 
     // Settings Toggle States
     var twoFactorAuth by remember { mutableStateOf(true) }
@@ -247,6 +253,23 @@ fun SettingsScreen(
                 subtitle = if (alertOnHighRisk) "Instant alerts enabled" else "Alerts muted"
             ) {
                 showNotificationDialog = true
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // Blockchain Voice Identity section
+        Text("VOICE IDENTITY & BLOCKCHAIN", style = MaterialTheme.typography.labelMedium, color = VsOnSurfaceVariant, letterSpacing = 2.sp)
+        Spacer(Modifier.height(8.dp))
+
+        SettingsCard {
+            SettingsItem(
+                icon = Icons.Filled.Fingerprint,
+                title = "Voice Identity Registry",
+                subtitle = if (isVoiceEnrolled) "Status: Registered • Verified On-Chain (v$voiceVersion)"
+                else "Status: Not Registered • Tap to view details"
+            ) {
+                showVoiceIdentityDialog = true
             }
         }
 
@@ -737,6 +760,139 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
                     Text("Close", color = VsOnSurfaceVariant)
+                }
+            }
+        )
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // 8. Voice Identity & Blockchain Dialog
+    // ─────────────────────────────────────────────────────────────────
+    if (showVoiceIdentityDialog) {
+        var isRevoking by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { showVoiceIdentityDialog = false },
+            containerColor = VsSurfaceContainerHighest,
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(Icons.Filled.Fingerprint, null, tint = VsSecondary)
+                    Text("Voice Identity Registry", style = MaterialTheme.typography.titleLarge, color = VsOnSurface)
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Your biometric voice fingerprint is cryptographically committed onto the tamper-resistant Ethereum blockchain registry.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VsOnSurfaceVariant
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = VsSurfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Registry Status", style = MaterialTheme.typography.labelMedium, color = VsOnSurfaceVariant)
+                                Text(
+                                    if (isVoiceEnrolled) "Active ✓" else "Not Registered",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (isVoiceEnrolled) VsSecondary else VsTertiary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Contract Network", style = MaterialTheme.typography.labelMedium, color = VsOnSurfaceVariant)
+                                Text("Ethereum Testnet", style = MaterialTheme.typography.labelMedium, color = VsOnSurface)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Identity Version", style = MaterialTheme.typography.labelMedium, color = VsOnSurfaceVariant)
+                                Text("v$voiceVersion", style = MaterialTheme.typography.labelMedium, color = VsOnSurface)
+                            }
+                        }
+                    }
+
+                    if (!voiceHash.isNullOrBlank()) {
+                        Text("Voice Hash (Keccak-256):", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = VsSurfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                voiceHash ?: "",
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp),
+                                color = VsSecondary,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                    if (!voiceTxHash.isNullOrBlank()) {
+                        Text("Transaction Hash:", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = VsSurfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                voiceTxHash ?: "",
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, fontSize = 11.sp),
+                                color = VsPrimary,
+                                modifier = Modifier.padding(8.dp)
+                            )
+                        }
+                    }
+
+                    if (isVoiceEnrolled) {
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedButton(
+                            onClick = {
+                                scope.launch {
+                                    isRevoking = true
+                                    try {
+                                        val uid = currentUserId ?: "current-user"
+                                        appContainer.voiceIdentityRepository.revokeVoice(uid)
+                                    } catch (_: Exception) {}
+                                    prefs.clearVoiceIdentity()
+                                    isRevoking = false
+                                    Toast.makeText(context, "Voice identity revoked successfully", Toast.LENGTH_SHORT).show()
+                                    showVoiceIdentityDialog = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = VsError),
+                            enabled = !isRevoking
+                        ) {
+                            if (isRevoking) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), color = VsError, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Revoking...")
+                            } else {
+                                Icon(Icons.Filled.DeleteOutline, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Revoke Voice Identity")
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showVoiceIdentityDialog = false }) {
+                    Text("Close", color = VsPrimary)
                 }
             }
         )

@@ -22,6 +22,10 @@ class PreferencesManager(private val context: Context) {
         val KEY_IS_LOGGED_IN = booleanPreferencesKey("is_logged_in")
         val KEY_SPEAKER_PROTECTION_ENABLED = booleanPreferencesKey("speaker_protection_enabled")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode") // "SYSTEM", "DARK", "LIGHT"
+        val KEY_VOICE_ENROLLED = booleanPreferencesKey("voice_enrolled")
+        val KEY_VOICE_HASH = stringPreferencesKey("voice_hash")
+        val KEY_VOICE_TX_HASH = stringPreferencesKey("voice_tx_hash")
+        val KEY_VOICE_VERSION = intPreferencesKey("voice_version")
     }
 
     val isLoggedIn: Flow<Boolean> = dataStore.data.map { it[KEY_IS_LOGGED_IN] ?: false }
@@ -32,6 +36,28 @@ class PreferencesManager(private val context: Context) {
     val authToken: Flow<String?> = dataStore.data.map { it[KEY_AUTH_TOKEN] }
     val speakerProtectionEnabled: Flow<Boolean> = dataStore.data.map { it[KEY_SPEAKER_PROTECTION_ENABLED] ?: true }
     val themeMode: Flow<String> = dataStore.data.map { it[KEY_THEME_MODE] ?: "SYSTEM" }
+    val isVoiceEnrolled: Flow<Boolean> = dataStore.data.map { it[KEY_VOICE_ENROLLED] ?: false }
+    val voiceHash: Flow<String?> = dataStore.data.map { it[KEY_VOICE_HASH] }
+    val voiceTxHash: Flow<String?> = dataStore.data.map { it[KEY_VOICE_TX_HASH] }
+    val voiceVersion: Flow<Int> = dataStore.data.map { it[KEY_VOICE_VERSION] ?: 1 }
+
+    suspend fun saveVoiceIdentity(hash: String, txHash: String?, version: Int) {
+        dataStore.edit { prefs ->
+            prefs[KEY_VOICE_ENROLLED] = true
+            prefs[KEY_VOICE_HASH] = hash
+            prefs[KEY_VOICE_TX_HASH] = txHash ?: ""
+            prefs[KEY_VOICE_VERSION] = version
+        }
+    }
+
+    suspend fun clearVoiceIdentity() {
+        dataStore.edit { prefs ->
+            prefs[KEY_VOICE_ENROLLED] = false
+            prefs.remove(KEY_VOICE_HASH)
+            prefs.remove(KEY_VOICE_TX_HASH)
+            prefs[KEY_VOICE_VERSION] = 1
+        }
+    }
 
     suspend fun saveLoginData(token: String, id: String, name: String?, email: String?, phone: String?) {
         dataStore.edit { prefs ->

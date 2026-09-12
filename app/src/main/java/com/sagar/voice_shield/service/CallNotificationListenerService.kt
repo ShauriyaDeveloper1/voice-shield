@@ -23,7 +23,7 @@ class CallNotificationListenerService : NotificationListenerService() {
 
     companion object {
         private const val TAG = "CallNotifListener"
-        private val activeCallKeys = mutableSetOf<String>()
+        internal val activeCallKeys = mutableSetOf<String>()
 
         private val CALLING_PACKAGES = setOf(
             "com.whatsapp",
@@ -59,21 +59,31 @@ class CallNotificationListenerService : NotificationListenerService() {
         val isCallCategory = (category == Notification.CATEGORY_CALL)
         val isCallStyle = template.contains("CallStyle", ignoreCase = true)
         val isKnownCallingApp = CALLING_PACKAGES.contains(pkg)
+        val isOngoing = (notif.flags and Notification.FLAG_ONGOING_EVENT) != 0
 
         val textLower = "$title $text".lowercase()
-        val hasCallKeywords = textLower.contains("incoming call") ||
-                textLower.contains("incoming voice call") ||
-                textLower.contains("incoming video call") ||
-                textLower.contains("ongoing call") ||
-                textLower.contains("call in progress") ||
-                textLower.contains("calling...") ||
-                textLower.contains("active call")
+        val hasCallKeywords = textLower.contains("incoming") ||
+                textLower.contains("ongoing") ||
+                textLower.contains("call") ||
+                textLower.contains("calling") ||
+                textLower.contains("active") ||
+                textLower.contains("tap to return") ||
+                textLower.contains("return to call") ||
+                textLower.contains("in progress")
 
-        val isCall = (isCallCategory || isCallStyle || (isKnownCallingApp && hasCallKeywords)) &&
-                !textLower.contains("missed call")
+        // Check if notification contains actions like "End Call", "Hang up", "Decline"
+        val hasCallActions = notif.actions?.any { action ->
+            val actionTitle = action.title?.toString()?.lowercase() ?: ""
+            actionTitle.contains("end") || actionTitle.contains("decline") ||
+                    actionTitle.contains("hang") || actionTitle.contains("mute")
+        } == true
+
+        val isCall = (isCallCategory || isCallStyle || (isKnownCallingApp && (hasCallKeywords || hasCallActions || isOngoing))) &&
+                !textLower.contains("missed call") &&
+                !textLower.contains("deleted")
 
         if (isCall) {
-            Log.i(TAG, "Incoming/Active call detected from package '$pkg' (key: ${sbn.key})")
+            Log.i(TAG, "Incoming/Active call detected from package '$pkg' (key: ${sbn.key}, title: '$title', text: '$text')")
             activeCallKeys.add(sbn.key)
             triggerSpeakerProtectionStart()
         }

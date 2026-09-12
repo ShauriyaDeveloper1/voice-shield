@@ -88,4 +88,31 @@ interface VoiceShieldApi {
 
     @GET("api/reports/check/{phone}")
     suspend fun checkSpam(@Path("phone") phone: String): SpamCheckResponse
+
+    // ── Voice Identity & Blockchain ──
+    @Multipart
+    @POST("api/voice/register")
+    suspend fun registerVoiceIdentity(
+        @Part file: MultipartBody.Part,
+        @Part("user_id") userId: okhttp3.RequestBody
+    ): VoiceRegistrationResponse
+
+    @GET("api/voice/status")
+    suspend fun getVoiceIdentityStatus(
+        @Query("user_id") userId: String
+    ): VoiceStatusResponse
+
+    @Multipart
+    @POST("api/voice/verify")
+    suspend fun verifyCallVoiceChunk(
+        @Part file: MultipartBody.Part,
+        @Part("user_id") userId: okhttp3.RequestBody,
+        @Part("deepfake_prob") deepfakeProb: okhttp3.RequestBody? = null
+    ): VoiceVerifyResponse
+
+    @FormUrlEncoded
+    @POST("api/voice/revoke")
+    suspend fun revokeVoiceIdentity(
+        @Field("user_id") userId: String
+    ): MessageResponse
 }

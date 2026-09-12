@@ -17,6 +17,7 @@ _memory: dict[str, list[dict]] = {
     "alerts": [],
     "trusted_contacts": [],
     "speaker_profiles": [],
+    "voice_identities": [],
 }
 
 
@@ -39,8 +40,9 @@ def _client() -> Client | None:
 
 def insert(table: str, values: dict) -> dict:
     values = {"id": str(uuid4()), **values}
-    if table in {"profiles", "speaker_profiles", "alerts", "trusted_contacts"}:
+    if table in {"profiles", "speaker_profiles", "alerts", "trusted_contacts", "voice_identities"}:
         values.setdefault("created_at", _now())
+        values.setdefault("updated_at", _now())
     if table == "call_analysis":
         values.setdefault("timestamp", _now())
     client = _client()

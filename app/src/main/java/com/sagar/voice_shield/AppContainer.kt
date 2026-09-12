@@ -75,6 +75,7 @@ class AppContainer(context: Context) {
     // Repositories
     val authRepository = AuthRepository(api, huggingFaceApi, preferencesManager)
     val analysisRepository = AnalysisRepository(api, callHistoryDao)
+    val voiceIdentityRepository = com.sagar.voice_shield.data.repository.VoiceIdentityRepository(api, preferencesManager)
 
     // ML
     val riskEngine = RiskEngine()

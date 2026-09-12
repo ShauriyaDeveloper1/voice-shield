@@ -148,11 +148,12 @@ class FloatingOverlayService : Service() {
 
         overlayView = container
 
-        // Make draggable
+        // Make draggable and tappable
         var initialX = 0
         var initialY = 0
         var initialTouchX = 0f
         var initialTouchY = 0f
+        var isClick = false
 
         container.setOnTouchListener { _, event ->
             when (event.action) {
@@ -161,12 +162,25 @@ class FloatingOverlayService : Service() {
                     initialY = params.y
                     initialTouchX = event.rawX
                     initialTouchY = event.rawY
+                    isClick = true
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    val dx = Math.abs(event.rawX - initialTouchX)
+                    val dy = Math.abs(event.rawY - initialTouchY)
+                    if (dx > 15 || dy > 15) {
+                        isClick = false
+                    }
                     params.x = initialX - (event.rawX - initialTouchX).toInt()
                     params.y = initialY + (event.rawY - initialTouchY).toInt()
                     windowManager?.updateViewLayout(container, params)
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (isClick) {
+                        // User tapped the overlay: toggle analysis
+                        AudioAnalysisService.toggleAnalysis()
+                    }
                     true
                 }
                 else -> false
@@ -211,7 +225,7 @@ class FloatingOverlayService : Service() {
             scoreView?.setTextColor(Color.parseColor("#869397"))
             statusView?.text = "⏸ STANDBY"
             statusView?.setTextColor(Color.parseColor("#4CD7F6"))
-            explanationView?.text = "Waiting for call... (Microphone Idle)"
+            explanationView?.text = "Waiting for call... (Tap to analyze now)"
             return
         }
 

@@ -7,6 +7,7 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,6 +36,8 @@ import com.sagar.voice_shield.service.FloatingOverlayService
 import com.sagar.voice_shield.ui.theme.*
 import kotlinx.coroutines.launch
 
+import androidx.core.app.NotificationManagerCompat
+
 @Composable
 fun SpeakerProtectionScreen(navController: NavController) {
     val context = LocalContext.current
@@ -44,6 +47,7 @@ fun SpeakerProtectionScreen(navController: NavController) {
 
     val savedProtectionEnabled by preferencesManager.speakerProtectionEnabled.collectAsState(initial = true)
     val isServiceRunning by AudioAnalysisService.isRunning.collectAsState()
+    val isActivelyAnalyzing by AudioAnalysisService.isAnalyzing.collectAsState()
 
     var hasMicPermission by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
@@ -51,11 +55,15 @@ fun SpeakerProtectionScreen(navController: NavController) {
     var hasOverlayPermission by remember {
         mutableStateOf(Settings.canDrawOverlays(context))
     }
+    var hasNotifPermission by remember {
+        mutableStateOf(NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName))
+    }
 
-    // Periodically re-check overlay permission when user returns to the app
+    // Periodically re-check overlay and notification permissions when user returns to the app
     DisposableEffect(Unit) {
         hasOverlayPermission = Settings.canDrawOverlays(context)
         hasMicPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        hasNotifPermission = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
         onDispose {}
     }
 
@@ -173,6 +181,100 @@ fun SpeakerProtectionScreen(navController: NavController) {
                         uncheckedThumbColor = VsOnSurfaceVariant, uncheckedTrackColor = VsSurfaceContainerHighest
                     )
                 )
+
+                if (isProtectionActive) {
+                    Spacer(Modifier.height(14.dp))
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isActivelyAnalyzing) VsErrorContainer.copy(alpha = 0.3f) else VsSecondaryContainer.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, if (isActivelyAnalyzing) VsError.copy(alpha = 0.5f) else VsSecondary.copy(alpha = 0.4f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                if (isActivelyAnalyzing) Icons.Filled.Mic else Icons.Filled.PauseCircle,
+                                null,
+                                tint = if (isActivelyAnalyzing) VsError else VsSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                if (isActivelyAnalyzing) "🔴 Actively Analyzing Call" else "⏸ Standby (Auto-detects calls)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isActivelyAnalyzing) VsError else VsSecondary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { AudioAnalysisService.toggleAnalysis() },
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isActivelyAnalyzing) VsError else VsSecondary
+                        ),
+                        border = BorderStroke(1.dp, if (isActivelyAnalyzing) VsError else VsSecondary)
+                    ) {
+                        Text(
+                            if (isActivelyAnalyzing) "Return to Standby" else "Force Test / Start Analysis",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Notification Access Warning if not enabled
+        if (!hasNotifPermission) {
+            Spacer(Modifier.height(14.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = VsSurfaceContainerHighest),
+                border = BorderStroke(1.dp, VsSecondary.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Filled.Warning, null, tint = VsSecondary, modifier = Modifier.size(24.dp))
+                        Text(
+                            "Call Detection Permission",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = VsOnSurface,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "VoiceShield needs Notification Access to auto-detect WhatsApp, Telegram, Google Meet, and phone calls as soon as they ring or connect.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = VsOnSurfaceVariant
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            try {
+                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(40.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = VsSecondary, contentColor = Color.Black)
+                    ) {
+                        Icon(Icons.Filled.Settings, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Enable Call Detection Access", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
             }
         }
 
