@@ -44,6 +44,12 @@ class PreferencesManager(private val context: Context) {
         }
     }
 
+    suspend fun updateUserName(name: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_USER_NAME] = name
+        }
+    }
+
     suspend fun clearLoginData() {
         dataStore.edit { prefs ->
             prefs.remove(KEY_AUTH_TOKEN)

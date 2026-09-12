@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     msg91_auth_key: str | None = None
     msg91_template_id: str | None = None
     supabase_service_role_key: str | None = None
+    msg91_sender_id: str | None = "VSHILD"
 
     @property
     def clean_supabase_url(self) -> str | None:

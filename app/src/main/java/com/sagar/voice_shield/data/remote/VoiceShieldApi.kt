@@ -26,6 +26,12 @@ interface VoiceShieldApi {
     @POST("api/auth/google")
     suspend fun googleAuth(@Body request: GoogleAuthRequest): GoogleAuthResponse
 
+    @POST("api/auth/send-otp")
+    suspend fun sendOtp(@Body request: SendOtpRequest): SendOtpResponse
+
+    @POST("api/auth/verify-otp")
+    suspend fun verifyOtp(@Body request: VerifyOtpRequest): VerifyOtpResponse
+
     // ── Calls ──
     @POST("api/calls/")
     suspend fun createCall(@Body request: CreateCallRequest): CallResponse
@@ -75,4 +81,11 @@ interface VoiceShieldApi {
 
     @DELETE("api/contacts/{contactId}")
     suspend fun deleteContact(@Path("contactId") contactId: String): MessageResponse
+
+    // ── Spam Reporting ──
+    @POST("api/reports/report")
+    suspend fun reportNumber(@Body request: ReportNumberRequest): ReportNumberResponse
+
+    @GET("api/reports/check/{phone}")
+    suspend fun checkSpam(@Path("phone") phone: String): SpamCheckResponse
 }

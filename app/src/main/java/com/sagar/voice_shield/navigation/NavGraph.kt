@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.sagar.voice_shield.ui.auth.LoginScreen
 import com.sagar.voice_shield.ui.auth.RegisterScreen
+import com.sagar.voice_shield.ui.auth.OtpAuthScreen
 import com.sagar.voice_shield.ui.screens.*
 
 @Composable
@@ -15,8 +16,18 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = if (isLoggedIn) Screen.Recents.route else Screen.Login.route
+        startDestination = if (isLoggedIn) Screen.Recents.route else Screen.OtpAuth.route
     ) {
+        composable(Screen.OtpAuth.route) {
+            OtpAuthScreen(
+                onAuthSuccess = {
+                    navController.navigate(Screen.Recents.route) {
+                        popUpTo(Screen.OtpAuth.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Screen.Login.route) {
             LoginScreen(
                 onLoginSuccess = {
@@ -91,7 +102,7 @@ fun NavGraph(
             SettingsScreen(
                 navController = navController,
                 onLogout = {
-                    navController.navigate(Screen.Login.route) {
+                    navController.navigate(Screen.OtpAuth.route) {
                         popUpTo(0) { inclusive = true }
                     }
                 }

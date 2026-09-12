@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from uuid import uuid4
 import hashlib
+import httpx
 
 from app.models.schemas import (
     RegisterRequest, 
@@ -352,6 +353,7 @@ async def google_auth(req: GoogleAuthRequest):
     }
 
 
+<<<<<<< Updated upstream
 @router.post("/otp/send")
 async def request_otp(req: SendOtpRequest):
     """Send an OTP code to user's phone via MSG91 (or dev fallback)."""
@@ -560,3 +562,148 @@ async def login_with_phone_otp(req: PhoneLoginRequest):
         "access_token": f"token-{user['id']}",
         "user": user
     }
+
+# ── MSG91 Phone OTP Authentication ──
+
+class SendOtpRequest(BaseModel):
+    phone: str
+
+
+class VerifyOtpRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+@router.post("/send-otp")
+async def send_otp(req: SendOtpRequest):
+    """Send OTP via MSG91 to phone number."""
+    phone = req.phone.strip()
+    digits = "".join(filter(str.isdigit, phone))
+    if len(digits) < 10:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid phone number. Must contain at least 10 digits."
+        )
+    # Ensure country code (e.g. 91 for India if 10 digits provided)
+    if len(digits) == 10:
+        digits = f"91{digits}"
+
+    auth_key = settings.msg91_auth_key
+    template_id = settings.msg91_template_id
+
+    if auth_key and template_id:
+        try:
+            url = "https://control.msg91.com/api/v5/otp"
+            params = {
+                "template_id": template_id,
+                "mobile": digits,
+                "authkey": auth_key,
+                "otp_length": 4,
+            }
+            if settings.msg91_sender_id:
+                params["sender"] = settings.msg91_sender_id
+
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.post(url, params=params)
+                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                if resp.status_code != 200 or data.get("type") == "error":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=data.get("message", "Failed to send OTP via MSG91")
+                    )
+                return {
+                    "message": "OTP sent successfully via MSG91",
+                    "phone": f"+{digits}"
+                }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"MSG91 service error: {str(e)}"
+            )
+    else:
+        # Development fallback mode when MSG91 credentials are not yet entered
+        return {
+            "message": "OTP sent (Dev mode: use '1234')",
+            "phone": f"+{digits}",
+            "dev_mode": True
+        }
+
+
+@router.post("/verify-otp")
+async def verify_otp(req: VerifyOtpRequest):
+    """Verify OTP and authenticate user by phone number."""
+    phone = req.phone.strip()
+    otp = req.otp.strip()
+    digits = "".join(filter(str.isdigit, phone))
+    if len(digits) == 10:
+        digits = f"91{digits}"
+
+    auth_key = settings.msg91_auth_key
+
+    if auth_key:
+        try:
+            url = "https://control.msg91.com/api/v5/otp/verify"
+            params = {
+                "otp": otp,
+                "mobile": digits,
+                "authkey": auth_key
+            }
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(url, params=params)
+                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                if resp.status_code != 200 or data.get("type") == "error":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=data.get("message", "Invalid or expired OTP")
+                    )
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"MSG91 verification error: {str(e)}"
+            )
+    else:
+        # Dev mode verification: accept "1234"
+        if otp != "1234":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OTP. In dev mode, please use '1234'."
+            )
+
+    # User authenticated via phone
+    formatted_phone = f"+{digits}"
+    user_id = f"user_{digits}"
+
+    existing = find_by("profiles", "phone", formatted_phone)
+    if not existing:
+        existing = find_by("profiles", "id", user_id)
+
+    if existing:
+        user_data = existing[0]
+    else:
+        user_data = {
+            "id": user_id,
+            "name": f"User {digits[-4:]}",
+            "phone": formatted_phone,
+            "email": "",
+            "role": "user"
+        }
+        insert("profiles", user_data)
+
+    token = f"vs_token_{user_id}_{uuid4()}"
+
+    return {
+        "message": "OTP verified successfully",
+        "access_token": token,
+        "token": token,
+        "user": {
+            "id": user_data.get("id", user_id),
+            "name": user_data.get("name", f"User {digits[-4:]}"),
+            "phone": user_data.get("phone", formatted_phone),
+            "email": user_data.get("email", "")
+        }
+    }
+

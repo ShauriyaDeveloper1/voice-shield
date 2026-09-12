@@ -35,12 +35,14 @@ data class CallHistoryItem(
     val phone: String,
     val time: String,
     val simInfo: String,
-    val riskType: String, // "safe", "blocked", "warning"
+    val riskType: String, // "safe", "blocked", "warning", "spam"
     val riskLabel: String,
     val riskDetail: String,
     val duration: String? = null,
     val isIncoming: Boolean = true,
-    val deepfakePercent: Int? = null
+    val deepfakePercent: Int? = null,
+    val isSpam: Boolean = false,
+    val spamCount: Int = 0
 )
 
 @Composable
@@ -50,27 +52,50 @@ fun RecentsScreen(navController: NavController) {
     val dbCalls by appContainer.callHistoryDao.getAllCalls().collectAsStateWithLifecycle(initialValue = emptyList<CallHistoryEntity>())
 
     var selectedFilter by remember { mutableStateOf("All") }
-    val filters = listOf("All", "Missed", "AI Flagged", "Blocked")
+    val filters = listOf("All", "Missed", "AI Flagged", "Blocked", "Spam")
 
-    val realItems = remember(dbCalls) {
+    // Community spam status map (phone -> (isSpam, reportCount))
+    var spamMap by remember { mutableStateOf<Map<String, Pair<Boolean, Int>>>(emptyMap()) }
+
+    LaunchedEffect(dbCalls) {
+        val uniqueNumbers = dbCalls.map { it.callerNumber.filter { c -> c.isDigit() } }.filter { it.length >= 7 }.distinct()
+        for (num in uniqueNumbers) {
+            try {
+                val res = appContainer.api.checkSpam(num)
+                if (res.isSpam || res.reportCount > 0) {
+                    spamMap = spamMap + (num to Pair(res.isSpam, res.reportCount))
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    val realItems = remember(dbCalls, spamMap) {
         dbCalls.map { entity ->
             val date = java.util.Date(entity.timestamp)
             val timeFormat = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
             val timeStr = timeFormat.format(date)
 
+            val digits = entity.callerNumber.filter { it.isDigit() }
+            val spamInfo = spamMap[digits]
+            val isSpam = spamInfo?.first ?: false
+            val spamCount = spamInfo?.second ?: 0
+
             val riskType = when {
+                isSpam || spamCount >= 20 -> "spam"
                 entity.isBlocked || entity.riskScore > 66 -> "blocked"
                 entity.riskScore > 33 -> "warning"
                 else -> "safe"
             }
 
             val riskLabel = when (riskType) {
+                "spam" -> "SPAM"
                 "blocked" -> "AI Clone"
                 "warning" -> "High Risk"
                 else -> "Verified"
             }
 
             val riskDetail = when (riskType) {
+                "spam" -> "SPAM • $spamCount Community Reports"
                 "blocked" -> "BLOCKED • ${(entity.deepfakeProbability * 100).toInt().coerceAtLeast(85)}% AI Voice Clone"
                 "warning" -> "Warning • Acoustic Anomaly Flagged"
                 else -> "Verified Acoustic Profile"
@@ -84,13 +109,15 @@ fun RecentsScreen(navController: NavController) {
                 name = entity.callerName.ifBlank { entity.callerNumber },
                 phone = entity.callerNumber,
                 time = timeStr,
-                simInfo = "VoiceShield Secure",
+                simInfo = if (isSpam) "Flagged by 20+ Users" else "VoiceShield Secure",
                 riskType = riskType,
                 riskLabel = riskLabel,
                 riskDetail = riskDetail,
                 duration = durStr,
                 isIncoming = true,
-                deepfakePercent = (entity.deepfakeProbability * 100).toInt()
+                deepfakePercent = (entity.deepfakeProbability * 100).toInt(),
+                isSpam = isSpam,
+                spamCount = spamCount
             )
         }
     }
@@ -121,8 +148,9 @@ fun RecentsScreen(navController: NavController) {
     val filteredCalls = remember(allCalls, selectedFilter) {
         when (selectedFilter) {
             "Missed" -> allCalls.filter { it.duration == "Missed" }
-            "AI Flagged" -> allCalls.filter { it.riskType == "warning" || it.riskType == "blocked" }
+            "AI Flagged" -> allCalls.filter { it.riskType == "warning" || it.riskType == "blocked" || it.riskType == "spam" }
             "Blocked" -> allCalls.filter { it.riskType == "blocked" }
+            "Spam" -> allCalls.filter { it.riskType == "spam" || it.isSpam }
             else -> allCalls
         }
     }
@@ -327,6 +355,7 @@ fun CallCard(
                     // Avatar
                     Box(contentAlignment = Alignment.Center) {
                         val (bgColor, iconColor) = when (call.riskType) {
+                            "spam" -> VsErrorContainer.copy(alpha = 0.35f) to VsError
                             "blocked" -> VsErrorContainer.copy(alpha = 0.3f) to VsError
                             "warning" -> VsTertiaryContainer.copy(alpha = 0.3f) to VsTertiary
                             else -> VsPrimaryContainer.copy(alpha = 0.2f) to VsPrimary
@@ -339,6 +368,7 @@ fun CallCard(
                             contentAlignment = Alignment.Center
                         ) {
                             when (call.riskType) {
+                                "spam" -> Icon(Icons.Filled.Report, null, tint = iconColor, modifier = Modifier.size(24.dp))
                                 "blocked" -> Icon(Icons.Filled.Block, null, tint = iconColor, modifier = Modifier.size(24.dp))
                                 "warning" -> Icon(Icons.Filled.Warning, null, tint = iconColor, modifier = Modifier.size(22.dp))
                                 else -> {
@@ -349,6 +379,7 @@ fun CallCard(
                         }
                         // Status badge
                         val badgeColor = when (call.riskType) {
+                            "spam" -> VsError
                             "blocked" -> VsError
                             "warning" -> VsTertiaryContainer
                             else -> VsSecondary
@@ -384,13 +415,14 @@ fun CallCard(
                             )
                             if (call.riskLabel.isNotEmpty()) {
                                 val labelColor = when (call.riskType) {
+                                    "spam" -> VsError
                                     "blocked" -> VsError
                                     "warning" -> VsTertiary
                                     else -> VsOnSurfaceVariant
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(50),
-                                    color = if (call.riskType == "blocked") VsErrorContainer.copy(alpha = 0.4f) else VsSurfaceVariant
+                                    color = if (call.riskType == "blocked" || call.riskType == "spam") VsErrorContainer.copy(alpha = 0.4f) else VsSurfaceVariant
                                 ) {
                                     Text(
                                         call.riskLabel,
@@ -411,6 +443,7 @@ fun CallCard(
                                 Icon(Icons.Filled.CallMade, null, tint = VsPrimaryContainer, modifier = Modifier.size(15.dp))
                             }
                             val detailColor = when (call.riskType) {
+                                "spam" -> VsError
                                 "blocked" -> VsError
                                 "warning" -> VsTertiary
                                 "safe" -> VsSecondary
@@ -436,8 +469,8 @@ fun CallCard(
                         ) {
                             Text(call.time, style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
                             Text("•", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
-                            if (call.riskType == "warning") {
-                                Text(call.simInfo, style = MaterialTheme.typography.labelSmall, color = VsTertiary, fontWeight = FontWeight.Medium)
+                            if (call.riskType == "warning" || call.riskType == "spam") {
+                                Text(call.simInfo, style = MaterialTheme.typography.labelSmall, color = if (call.riskType == "spam") VsError else VsTertiary, fontWeight = FontWeight.Medium)
                             } else {
                                 Text(call.simInfo, style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
                             }
@@ -455,10 +488,12 @@ fun CallCard(
                 ) {
                     Icon(
                         if (call.riskType == "safe") Icons.Filled.Call
+                        else if (call.riskType == "spam") Icons.Filled.ReportProblem
                         else if (call.riskType == "blocked") Icons.Filled.Info
                         else Icons.Filled.Flag,
                         null,
                         tint = if (call.riskType == "safe") VsSecondary
+                        else if (call.riskType == "spam") VsError
                         else if (call.riskType == "warning") VsTertiary
                         else VsOnSurfaceVariant,
                         modifier = Modifier.size(20.dp)
@@ -466,8 +501,8 @@ fun CallCard(
                 }
             }
 
-            // Threat breakdown for blocked calls
-            if (call.riskType == "blocked") {
+            // Threat breakdown for blocked or spam calls
+            if (call.riskType == "blocked" || call.riskType == "spam") {
                 Spacer(Modifier.height(8.dp))
                 Surface(
                     onClick = {},
@@ -481,13 +516,18 @@ fun CallCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.GraphicEq, null, tint = VsError, modifier = Modifier.size(18.dp))
-                            Text("Acoustic synthesis anomaly detected", style = MaterialTheme.typography.bodySmall, color = VsError)
+                            Icon(if (call.riskType == "spam") Icons.Filled.Shield else Icons.Filled.GraphicEq, null, tint = VsError, modifier = Modifier.size(18.dp))
+                            Text(
+                                if (call.riskType == "spam") "Community Spam • Auto-Blocked" else "Acoustic synthesis anomaly detected",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = VsError
+                            )
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("VIEW TELEMETRY", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
-                            Icon(Icons.Filled.ChevronRight, null, tint = VsOnSurfaceVariant, modifier = Modifier.size(16.dp))
-                        }
+                        Text(
+                            if (call.riskType == "spam") "SPAM (${call.spamCount}+)" else "TERMINATED",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                            color = VsError
+                        )
                     }
                 }
             }

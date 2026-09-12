@@ -165,3 +165,46 @@ data class MessageResponse(
     val message: String,
     val email: String? = null
 )
+
+// ── Spam Reporting DTOs ──
+data class ReportNumberRequest(
+    @SerializedName("reporter_user_id") val reporterUserId: String,
+    @SerializedName("reported_phone") val reportedPhone: String,
+    val reason: String? = null
+)
+
+data class ReportNumberResponse(
+    val message: String,
+    @SerializedName("report_count") val reportCount: Int = 0,
+    @SerializedName("is_spam") val isSpam: Boolean = false
+)
+
+data class SpamCheckResponse(
+    val phone: String,
+    @SerializedName("report_count") val reportCount: Int = 0,
+    @SerializedName("is_spam") val isSpam: Boolean = false
+)
+
+// ── Phone OTP DTOs ──
+data class SendOtpRequest(
+    val phone: String
+)
+
+data class SendOtpResponse(
+    val message: String,
+    val phone: String? = null,
+    val reqId: String? = null,
+    @SerializedName("dev_mode") val devMode: Boolean = false
+)
+
+data class VerifyOtpRequest(
+    val phone: String,
+    val otp: String
+)
+
+data class VerifyOtpResponse(
+    val message: String,
+    val token: String? = null,
+    @SerializedName("access_token") val accessToken: String? = null,
+    val user: UserDto? = null
+)

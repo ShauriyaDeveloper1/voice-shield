@@ -22,6 +22,11 @@ import com.sagar.voice_shield.BuildConfig
 import com.sagar.voice_shield.VoiceShieldApp
 import com.sagar.voice_shield.navigation.Screen
 import com.sagar.voice_shield.ui.theme.*
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -65,6 +70,44 @@ fun SettingsScreen(
     var pingStatus by remember { mutableStateOf<String?>(null) }
     var isTestingConnection by remember { mutableStateOf(false) }
 
+    val credentialManager = remember { CredentialManager.create(context) }
+
+    fun launchGoogleSync() {
+        scope.launch {
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(BuildConfig.GOOGLE_CLIENT_ID)
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val result = credentialManager.getCredential(
+                    request = request,
+                    context = context as android.app.Activity
+                )
+
+                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(result.credential.data)
+                val email = googleIdTokenCredential.id
+                val name = googleIdTokenCredential.displayName ?: email.substringBefore("@")
+                val idToken = googleIdTokenCredential.idToken
+
+                val token = prefs.authToken.firstOrNull() ?: ""
+                val id = prefs.userId.firstOrNull() ?: ""
+                prefs.saveLoginData(token, id, name, email, currentPhone)
+                appContainer.voipCallManager.updateMyCredentials(currentPhone ?: "", name)
+
+                android.widget.Toast.makeText(context, "Google account linked: $email. Contacts synchronized!", android.widget.Toast.LENGTH_LONG).show()
+            } catch (_: GetCredentialCancellationException) {
+                // User cancelled sign-in
+            } catch (e: Exception) {
+                android.widget.Toast.makeText(context, "Google Sign-In failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -86,6 +129,17 @@ fun SettingsScreen(
                 subtitle = "${currentName ?: "User"} • ${currentPhone ?: "+91 98765 43210"}"
             ) {
                 showProfileDialog = true
+            }
+            HorizontalDivider(color = VsSurfaceContainerHighest)
+            SettingsItem(
+                icon = Icons.Filled.Sync,
+                title = "Google Account & Contacts",
+                subtitle = if (!currentEmail.isNullOrBlank() && currentEmail != "user@voiceshield.ai")
+                    "Linked: $currentEmail • Sync Contacts"
+                else
+                    "Sign in with Google to sync contacts"
+            ) {
+                launchGoogleSync()
             }
             HorizontalDivider(color = VsSurfaceContainerHighest)
             SettingsItem(
@@ -210,7 +264,6 @@ fun SettingsScreen(
     // ─────────────────────────────────────────────────────────────────
     if (showProfileDialog) {
         var editName by remember { mutableStateOf(currentName ?: "") }
-        var editEmail by remember { mutableStateOf(currentEmail ?: "") }
         var editPhone by remember { mutableStateOf(currentPhone ?: "") }
 
         AlertDialog(
@@ -229,13 +282,6 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     OutlinedTextField(
-                        value = editEmail,
-                        onValueChange = { editEmail = it },
-                        label = { Text("Email Address") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
                         value = editPhone,
                         onValueChange = { editPhone = it },
                         label = { Text("Phone Number") },
@@ -250,7 +296,8 @@ fun SettingsScreen(
                         scope.launch {
                             val token = prefs.authToken.firstOrNull() ?: ""
                             val id = prefs.userId.firstOrNull() ?: ""
-                            prefs.saveLoginData(token, id, editName, editEmail, editPhone)
+                            val email = prefs.userEmail.firstOrNull() ?: ""
+                            prefs.saveLoginData(token, id, editName, email, editPhone)
                             appContainer.voipCallManager.updateMyCredentials(editPhone, editName)
                             showProfileDialog = false
                         }

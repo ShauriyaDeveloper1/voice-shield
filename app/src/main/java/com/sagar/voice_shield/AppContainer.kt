@@ -64,7 +64,7 @@ class AppContainer(context: Context) {
     val trustedContactDao = database.trustedContactDao()
 
     // Repositories
-    val authRepository = AuthRepository(api, preferencesManager)
+    val authRepository = AuthRepository(api, huggingFaceApi, preferencesManager)
     val analysisRepository = AnalysisRepository(api, callHistoryDao)
 
     // ML
@@ -83,10 +83,12 @@ class AppContainer(context: Context) {
         notificationHelper = notificationHelper
     )
 
-    // Audio Call Engine (Ringtone, Sound, Mic Analysis)
+    // Audio Call Engine (Ringtone, Sound, Mic Analysis + AI Model Pipeline)
     val audioCallEngine = com.sagar.voice_shield.service.AudioCallEngine(
         context = context,
         prosodyAnalyzer = prosodyAnalyzer,
-        riskEngine = riskEngine
+        riskEngine = riskEngine,
+        hfApi = huggingFaceApi,
+        backendApi = api
     )
 }
