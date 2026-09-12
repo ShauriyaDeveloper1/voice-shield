@@ -263,12 +263,15 @@ fun ActiveCallScreen(
         when (callState) {
             VoipCallState.DIALING -> {
                 audioCallEngine.startRinging()
+                voipCallManager.audioStreamer.setSpeakerphone(false)
             }
             VoipCallState.CONNECTED -> {
                 audioCallEngine.startActiveCallAudio(isVoipWebRtc = true)
+                voipCallManager.audioStreamer.setSpeakerphone(false)
             }
             VoipCallState.OFFLINE_DEMO -> {
                 audioCallEngine.startActiveCallAudio(isVoipWebRtc = false)
+                voipCallManager.audioStreamer.setSpeakerphone(false)
             }
             VoipCallState.ENDED, VoipCallState.IDLE -> {
                 audioCallEngine.stopCallAudio()

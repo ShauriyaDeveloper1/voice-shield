@@ -173,8 +173,6 @@ class AudioCallEngine(
 
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        @Suppress("DEPRECATION")
-        audioManager.isSpeakerphoneOn = true
 
         // Play brief connect prompt chime
         try {

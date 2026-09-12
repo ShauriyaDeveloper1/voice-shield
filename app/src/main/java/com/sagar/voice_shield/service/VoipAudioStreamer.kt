@@ -52,6 +52,29 @@ class VoipAudioStreamer(
         Log.d(TAG, "Local warning alert playing state: $playing (mic outbound suppressed=$playing)")
     }
 
+    fun applyAudioTrackDevice(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                val targetDevice = if (enabled) {
+                    outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                } else {
+                    outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                        ?: outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+                }
+                if (targetDevice != null) {
+                    val res = audioTrack?.setPreferredDevice(targetDevice)
+                    Log.d(TAG, "audioTrack.setPreferredDevice(${targetDevice.type}): $res")
+                } else if (enabled) {
+                    audioTrack?.setPreferredDevice(null)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed setting AudioTrack preferred device", e)
+            }
+        }
+    }
+
     fun setSpeakerphone(enabled: Boolean) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -68,6 +91,8 @@ class VoipAudioStreamer(
                 } else {
                     val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
                         it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                    } ?: audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     }
                     if (earpieceDevice != null) {
                         val success = audioManager.setCommunicationDevice(earpieceDevice)
@@ -79,6 +104,7 @@ class VoipAudioStreamer(
             }
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = enabled
+            applyAudioTrackDevice(enabled)
             _isSpeakerOn.value = enabled
             Log.d(TAG, "Speakerphone set to: $enabled (earpiece=${!enabled})")
         } catch (e: Exception) {
@@ -149,7 +175,8 @@ class VoipAudioStreamer(
 
             if (audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
                 audioTrack?.play()
-                Log.d(TAG, "AudioTrack initialized and playing in STREAM mode")
+                applyAudioTrackDevice(_isSpeakerOn.value)
+                Log.d(TAG, "AudioTrack initialized and playing in STREAM mode (earpiece default)")
             } else {
                 Log.e(TAG, "AudioTrack failed to initialize (state: ${audioTrack?.state})")
             }

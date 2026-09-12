@@ -188,16 +188,24 @@ class WebRtcCallManager(
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = true
+            audioManager.isSpeakerphoneOn = false
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                    it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                }
+                if (earpieceDevice != null) {
+                    audioManager.setCommunicationDevice(earpieceDevice)
+                }
+            }
             @Suppress("DEPRECATION")
             audioManager.requestAudioFocus(
                 null,
                 AudioManager.STREAM_VOICE_CALL,
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             )
-            Log.d(TAG, "Audio routed to speakerphone with communication mode")
+            Log.d(TAG, "Audio routed to EARPIECE by default in communication mode")
         } catch (e: Exception) {
-            Log.w(TAG, "Failed setting speakerphone", e)
+            Log.w(TAG, "Failed setting earpiece mode", e)
         }
     }
 
