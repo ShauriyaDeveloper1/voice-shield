@@ -111,10 +111,9 @@ class VoipAudioStreamer(
                         Log.w(TAG, "enforceAudioRouting: No earpiece found among ${available.map { it.type }}")
                     }
                 }
-            } else {
-                @Suppress("DEPRECATION")
-                audioManager.isSpeakerphoneOn = speaker
             }
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = speaker
 
             applyAudioTrackDevice(speaker)
         } catch (e: Exception) {

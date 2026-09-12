@@ -853,7 +853,7 @@ fun ActiveCallScreen(
                     Text(if (isMuted) "Unmute" else "Mute", style = MaterialTheme.typography.labelSmall, color = VsOnSurfaceVariant)
                 }
 
-                // 2. Speaker / Earpiece Toggle
+                // 2. Speakerphone Toggle Button (defaults to Earpiece; tap to turn ON speaker, tap again to turn OFF)
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     IconButton(
                         onClick = {
@@ -862,16 +862,20 @@ fun ActiveCallScreen(
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(if (isSpeakerOn) VsSecondary.copy(alpha = 0.2f) else VsSurfaceContainerHigh)
+                            .background(if (isSpeakerOn) VsSecondary.copy(alpha = 0.25f) else VsSurfaceContainerHigh)
                     ) {
                         Icon(
-                            if (isSpeakerOn) Icons.Filled.VolumeUp else Icons.Filled.PhoneInTalk,
-                            contentDescription = if (isSpeakerOn) "Speakerphone active" else "Earpiece active",
+                            imageVector = Icons.Filled.VolumeUp,
+                            contentDescription = if (isSpeakerOn) "Speakerphone active (tap to turn off)" else "Speakerphone inactive (tap to turn on)",
                             tint = if (isSpeakerOn) VsSecondary else VsOnSurfaceVariant
                         )
                     }
                     Spacer(Modifier.height(6.dp))
-                    Text(if (isSpeakerOn) "Speaker" else "Earpiece", style = MaterialTheme.typography.labelSmall, color = if (isSpeakerOn) VsSecondary else VsOnSurfaceVariant)
+                    Text(
+                        text = "Speaker",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isSpeakerOn) VsSecondary else VsOnSurfaceVariant
+                    )
                 }
 
                 // 3. Report Spam
