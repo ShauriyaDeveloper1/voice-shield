@@ -152,6 +152,11 @@ fun ActiveCallScreen(
         }
     }
 
+    androidx.activity.compose.BackHandler {
+        voipCallManager.endCall(saveHistory = true, riskScore = riskScore)
+        exitCallScreen()
+    }
+
     // Manage Call Sound Engine (Ringtone and Active Call Audio) and clean exit
     LaunchedEffect(callState) {
         when (callState) {

@@ -87,7 +87,6 @@ fun RegisterScreen(
                     id = googleIdTokenCredential.id.hashCode().toString(),
                     idToken = idToken
                 )
-                container.voipCallManager.updateMyCredentials(phone = "", name = name)
             } catch (e: GetCredentialCancellationException) {
                 android.util.Log.d("AUTH_GOOGLE", "User cancelled Google Sign-In")
             } catch (e: Exception) {

@@ -13,6 +13,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.firstOrNull
 import okhttp3.*
 import java.net.URLEncoder
@@ -91,28 +92,58 @@ class VoipCallManager(
 
     private var callStartTime: Long = 0L
 
+    fun normalizePhone(phone: String): String {
+        val digits = phone.filter { it.isDigit() }
+        return if (digits.length >= 10) "+91${digits.takeLast(10)}" else phone.trim()
+    }
+
     init {
         coroutineScope.launch {
-            // Load credentials and start websocket
-            val savedPhone = preferencesManager.userPhone.firstOrNull()
-            val savedName = preferencesManager.userName.firstOrNull()
+            combine(
+                preferencesManager.userPhone,
+                preferencesManager.userName
+            ) { phone, name ->
+                Pair(phone, name)
+            }.collect { (phone, name) ->
+                val resolvedPhone = if (!phone.isNullOrBlank()) normalizePhone(phone) else "+919876543210"
+                val resolvedName = if (!name.isNullOrBlank()) name else "User"
 
-            myPhone = if (!savedPhone.isNullOrBlank()) savedPhone else "+91 98765 43210"
-            myName = if (!savedName.isNullOrBlank()) savedName else "Android User"
+                if (resolvedPhone != myPhone || !isConnected) {
+                    Log.d(TAG, "User credentials synced: $resolvedPhone ($resolvedName), connecting WS...")
+                    myPhone = resolvedPhone
+                    myName = resolvedName
+                    connectWebSocket(resolvedPhone)
+                }
+            }
+        }
 
-            connectWebSocket(myPhone)
+        // Heartbeat timer to ensure WebSocket connection never becomes stale
+        coroutineScope.launch {
+            while (isActive) {
+                delay(25000)
+                if (isConnected && webSocket != null) {
+                    try {
+                        val ping = JsonObject().apply { addProperty("type", "ping") }
+                        webSocket?.send(ping.toString())
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Heartbeat ping warning", e)
+                    }
+                }
+            }
         }
     }
 
     fun updateMyCredentials(phone: String, name: String) {
-        myPhone = phone
-        myName = name
-        connectWebSocket(phone)
+        val normalized = if (phone.isNotBlank()) normalizePhone(phone) else myPhone
+        myPhone = normalized
+        if (name.isNotBlank()) myName = name
+        connectWebSocket(normalized)
     }
 
     fun connectWebSocket(phone: String) {
-        if (phone.isBlank()) return
-        myPhone = phone
+        val normalized = normalizePhone(phone)
+        if (normalized.isBlank()) return
+        myPhone = normalized
 
         try {
             webSocket?.close(1000, "Reconnecting")
@@ -125,7 +156,7 @@ class VoipCallManager(
             .replace("http://", "ws://")
             .trimEnd('/')
 
-        val cleanPhone = URLEncoder.encode(phone.trim(), "UTF-8")
+        val cleanPhone = URLEncoder.encode(normalized, "UTF-8")
         val wsUrl = "$baseWs/api/calls/ws/$cleanPhone"
 
         Log.d(TAG, "Connecting to WebSocket: $wsUrl")
@@ -187,7 +218,7 @@ class VoipCallManager(
                         message = "$fromName ($fromPhone) is calling you with AI Protection active."
                     )
 
-                    if (_callState.value == VoipCallState.IDLE) {
+                    if (_callState.value == VoipCallState.IDLE || _callState.value == VoipCallState.ENDED) {
                         _incomingCall.value = IncomingCallData(fromPhone, fromName)
                         _callState.value = VoipCallState.INCOMING
                         startIncomingRingtone()
@@ -291,15 +322,16 @@ class VoipCallManager(
     }
 
     fun initiateCall(targetPhone: String, targetName: String) {
-        _activePeerPhone.value = targetPhone
-        _activePeerName.value = if (targetName.isNotBlank()) targetName else formatPhone(targetPhone)
+        val normalizedTarget = normalizePhone(targetPhone)
+        _activePeerPhone.value = normalizedTarget
+        _activePeerName.value = if (targetName.isNotBlank() && targetName != "Outgoing Call") targetName else formatPhone(normalizedTarget)
         _callState.value = VoipCallState.DIALING
         _statusMessage.value = "Calling ${_activePeerName.value}..."
         callStartTime = System.currentTimeMillis()
 
         val msg = JsonObject().apply {
             addProperty("type", "call_initiate")
-            addProperty("to_phone", targetPhone)
+            addProperty("to_phone", normalizedTarget)
             addProperty("from_name", myName)
         }
         sendMessage(msg)
