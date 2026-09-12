@@ -1,4 +1,15 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+_BACKEND_DIR = Path(__file__).resolve().parent
+_ROOT_DIR = _BACKEND_DIR.parent
+
+_ENV_FILES = [
+    str(_BACKEND_DIR / ".env"),
+    str(_ROOT_DIR / ".env"),
+    ".env",
+]
 
 
 class Settings(BaseSettings):
@@ -16,9 +27,20 @@ class Settings(BaseSettings):
     msg91_template_id: str | None = None
     supabase_service_role_key: str | None = None
 
+    @property
+    def clean_supabase_url(self) -> str | None:
+        if not self.supabase_url:
+            return None
+        url = self.supabase_url.strip()
+        for suffix in ["/rest/v1/", "/rest/v1"]:
+            if url.endswith(suffix):
+                url = url[:-len(suffix)]
+        return url
+
     class Config:
-        env_file = ".env"
+        env_file = _ENV_FILES
         extra = "ignore"
 
 
 settings = Settings()
+

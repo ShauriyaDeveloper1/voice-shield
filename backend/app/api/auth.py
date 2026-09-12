@@ -402,14 +402,41 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             "user": user
         }
 
-    # Generate new user
+    # Connect to Supabase
     client = _client()
-    user_id = str(uuid4())
     synthetic_email = f"phone_{''.join(ch for ch in formatted_phone if ch.isdigit())}@voiceshield.com"
 
     if client:
         try:
-            # Create in Supabase Auth
+            # Atomic creation in Supabase Auth & public.profiles & user sub-tables via RPC
+            rpc_resp = client.rpc("register_phone_user", {
+                "phone_input": formatted_phone,
+                "name_input": req.name.strip()
+            }).execute()
+
+            if rpc_resp.data:
+                user_data = rpc_resp.data
+                return {
+                    "message": "Account verified and created successfully.",
+                    "access_token": f"token-{user_data.get('id')}",
+                    "user": user_data
+                }
+        except Exception as rpc_err:
+            print(f"[Auth Error] register_phone_user RPC notice: {rpc_err}")
+
+    # Fallback if RPC fails: check if profile already exists or insert manually
+    existing_users = find_by("profiles", "phone", formatted_phone)
+    if existing_users:
+        user = existing_users[0]
+        return {
+            "message": "Account verified and logged in.",
+            "access_token": f"token-{user['id']}",
+            "user": user
+        }
+
+    user_id = str(uuid4())
+    if client:
+        try:
             auth_resp = client.auth.sign_up({
                 "email": synthetic_email,
                 "password": str(uuid4()),
@@ -424,9 +451,8 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             if auth_resp.user:
                 user_id = auth_resp.user.id
         except Exception as auth_err:
-            print(f"[Auth] Supabase auth signup notice: {auth_err}")
+            print(f"[Auth Error] Supabase auth signup notice: {auth_err}")
 
-    # Ensure profile entry exists in public.profiles (triggers create_user_subtables)
     profile_data = {
         "id": user_id,
         "name": req.name.strip(),
@@ -444,7 +470,6 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             "user": saved_profile
         }
     except Exception as e:
-        # Check if already inserted by on_auth_user_created trigger
         existing = find_by("profiles", "id", user_id)
         if existing:
             return {
@@ -454,8 +479,9 @@ async def verify_otp_signup(req: VerifyOtpSignupRequest):
             }
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create user profile: {str(e)}"
+            detail=f"Failed to create user profile in Supabase: {str(e)}"
         )
+
 
 
 @router.post("/otp/verify-phone")

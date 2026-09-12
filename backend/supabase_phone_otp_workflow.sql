@@ -35,10 +35,13 @@ BEGIN
     EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF calls FOR VALUES IN (%L)', 'calls_' || user_suffix, target_user_id);
     EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF call_analysis FOR VALUES IN (%L)', 'call_analysis_' || user_suffix, target_user_id);
     EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF alerts FOR VALUES IN (%L)', 'alerts_' || user_suffix, target_user_id);
+
+    NOTIFY pgrst, 'reload schema';
 EXCEPTION WHEN OTHERS THEN
     NULL;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 
 -- 4. Automatic Auth User Synchronization Function
 -- Syncs both Phone OTP and Google OAuth users from auth.users -> public.profiles
@@ -134,8 +137,154 @@ AFTER INSERT ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.create_user_subtables();
 
--- 7. Grant Schema Privileges
+-- 7. Master Phone User Registration Function (Direct auth.users + profiles + sub-tables)
+CREATE OR REPLACE FUNCTION public.register_phone_user(phone_input text, name_input text)
+RETURNS jsonb AS $$
+DECLARE
+    clean_digits TEXT;
+    clean_phone TEXT;
+    synthetic_email TEXT;
+    target_user_id UUID;
+    result_profile RECORD;
+BEGIN
+    clean_phone := trim(phone_input);
+    clean_digits := regexp_replace(clean_phone, '[^0-9]', '', 'g');
+    synthetic_email := 'phone_' || clean_digits || '@voiceshield.com';
+
+    -- 1. Check if user already exists in public.profiles with this phone or email
+    SELECT * INTO result_profile FROM public.profiles 
+    WHERE phone = clean_phone OR email = synthetic_email
+    LIMIT 1;
+
+    IF result_profile.id IS NOT NULL THEN
+        target_user_id := result_profile.id;
+
+        UPDATE public.profiles 
+        SET phone_verified = true,
+            name = COALESCE(NULLIF(name_input, ''), result_profile.name)
+        WHERE id = target_user_id;
+
+        UPDATE auth.users
+        SET phone = clean_phone,
+            phone_confirmed_at = COALESCE(phone_confirmed_at, now()),
+            updated_at = now()
+        WHERE id = target_user_id;
+
+        PERFORM public.create_user_subtables_for_user(target_user_id);
+
+        SELECT * INTO result_profile FROM public.profiles WHERE id = target_user_id;
+        RETURN to_jsonb(result_profile);
+    END IF;
+
+    -- 2. Check if user already exists in auth.users by email or phone
+    SELECT id INTO target_user_id FROM auth.users 
+    WHERE phone = clean_phone OR email = synthetic_email 
+    LIMIT 1;
+
+    IF target_user_id IS NULL THEN
+        target_user_id := gen_random_uuid();
+
+        INSERT INTO auth.users (
+            id,
+            instance_id,
+            aud,
+            role,
+            email,
+            phone,
+            phone_confirmed_at,
+            email_confirmed_at,
+            raw_app_meta_data,
+            raw_user_meta_data,
+            created_at,
+            updated_at
+        ) VALUES (
+            target_user_id,
+            '00000000-0000-0000-0000-000000000000',
+            'authenticated',
+            'authenticated',
+            synthetic_email,
+            clean_phone,
+            now(),
+            now(),
+            '{"provider": "phone", "providers": ["phone"]}'::jsonb,
+            jsonb_build_object(
+                'name', name_input,
+                'full_name', name_input,
+                'phone', clean_phone,
+                'phone_verified', true
+            ),
+            now(),
+            now()
+        );
+
+        INSERT INTO auth.identities (
+            id,
+            user_id,
+            identity_data,
+            provider,
+            provider_id,
+            last_sign_in_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            target_user_id,
+            target_user_id,
+            jsonb_build_object('sub', target_user_id::text, 'phone', clean_phone),
+            'phone',
+            clean_phone,
+            now(),
+            now(),
+            now()
+        )
+        ON CONFLICT (provider, provider_id) DO NOTHING;
+    ELSE
+        UPDATE auth.users 
+        SET phone = clean_phone,
+            phone_confirmed_at = COALESCE(phone_confirmed_at, now()),
+            updated_at = now()
+        WHERE id = target_user_id;
+    END IF;
+
+    -- 3. Upsert into public.profiles
+    INSERT INTO public.profiles (
+        id,
+        name,
+        email,
+        phone,
+        phone_verified,
+        role,
+        avatar_url,
+        created_at
+    ) VALUES (
+        target_user_id,
+        name_input,
+        synthetic_email,
+        clean_phone,
+        true,
+        'user',
+        '',
+        now()
+    )
+    ON CONFLICT (id) DO UPDATE
+    SET
+        name = COALESCE(NULLIF(EXCLUDED.name, ''), profiles.name),
+        phone = EXCLUDED.phone,
+        phone_verified = true,
+        email = COALESCE(profiles.email, EXCLUDED.email);
+
+    -- 4. Provision user partition sub-tables
+    PERFORM public.create_user_subtables_for_user(target_user_id);
+
+    -- 5. Return profile
+    SELECT * INTO result_profile FROM public.profiles WHERE id = target_user_id;
+    RETURN to_jsonb(result_profile);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 8. Grant Schema Privileges
 ALTER TABLE IF EXISTS public.phone_verifications DISABLE ROW LEVEL SECURITY;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.register_phone_user(text, text) TO anon, authenticated, service_role;
+
