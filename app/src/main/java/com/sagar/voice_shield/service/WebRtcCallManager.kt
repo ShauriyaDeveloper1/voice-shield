@@ -96,7 +96,6 @@ class WebRtcCallManager(
                 Log.d("WEBRTC", "ICE connection state: $state")
                 Log.d(TAG, "IceConnectionState: $state")
                 if (state == PeerConnection.IceConnectionState.CONNECTED || state == PeerConnection.IceConnectionState.COMPLETED) {
-                    routeAudioToSpeaker()
                     inspectSelectedCandidatePair()
                 }
             }
@@ -127,10 +126,8 @@ class WebRtcCallManager(
 
             override fun onAddStream(stream: MediaStream) {
                 Log.d(TAG, "onAddStream with audio tracks: ${stream.audioTracks.size}")
-                if (stream.audioTracks.isNotEmpty()) {
-                    stream.audioTracks[0].setEnabled(true)
-                    routeAudioToSpeaker()
-                }
+                // Mute remote WebRTC track; VoipAudioStreamer handles in-call earpiece playback exclusively
+                stream.audioTracks.forEach { it.setEnabled(false) }
             }
 
             override fun onRemoveStream(stream: MediaStream) {}
@@ -143,8 +140,7 @@ class WebRtcCallManager(
                 Log.d(TAG, "onAddTrack received track kind: ${receiver.track()?.kind()}")
                 val track = receiver.track()
                 if (track is AudioTrack) {
-                    track.setEnabled(true)
-                    routeAudioToSpeaker()
+                    track.setEnabled(false)
                 }
             }
 
@@ -152,8 +148,7 @@ class WebRtcCallManager(
                 Log.d(TAG, "onTrack transceiver received kind: ${transceiver.receiver.track()?.kind()}")
                 val track = transceiver.receiver.track()
                 if (track is AudioTrack) {
-                    track.setEnabled(true)
-                    routeAudioToSpeaker()
+                    track.setEnabled(false)
                 }
             }
         }
@@ -181,32 +176,6 @@ class WebRtcCallManager(
         }
 
         return pc
-    }
-
-    private fun routeAudioToSpeaker() {
-        try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = false
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
-                    it.type == android.media.AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-                }
-                if (earpieceDevice != null) {
-                    audioManager.setCommunicationDevice(earpieceDevice)
-                }
-            }
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_VOICE_CALL,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-            )
-            Log.d(TAG, "Audio routed to EARPIECE by default in communication mode")
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed setting earpiece mode", e)
-        }
     }
 
     private fun inspectSelectedCandidatePair() {
@@ -355,7 +324,6 @@ class WebRtcCallManager(
                 Log.d(TAG, "setRemoteDescription success for answer. WebRTC audio active.")
                 isRemoteDescriptionSet = true
                 drainQueuedCandidates()
-                routeAudioToSpeaker()
             }
             override fun onCreateSuccess(p0: SessionDescription?) {}
             override fun onCreateFailure(s: String?) {}
@@ -403,11 +371,6 @@ class WebRtcCallManager(
             peerConnection?.close()
             peerConnection?.dispose()
             peerConnection = null
-
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_NORMAL
-            @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = false
         } catch (e: Exception) {
             Log.w(TAG, "Error cleaning up peer connection", e)
         }

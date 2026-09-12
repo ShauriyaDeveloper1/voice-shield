@@ -40,6 +40,8 @@ class VoipAudioStreamer(
 
     private val _isSpeakerOn = MutableStateFlow(false)
     val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn.asStateFlow()
+    private val userSpeakerChoice = AtomicBoolean(false)
+    private var commDeviceListener: AudioManager.OnCommunicationDeviceChangedListener? = null
 
     val sampleRate = 16000
     // 100ms chunk = 1600 samples at 16kHz
@@ -52,12 +54,12 @@ class VoipAudioStreamer(
         Log.d(TAG, "Local warning alert playing state: $playing (mic outbound suppressed=$playing)")
     }
 
-    fun applyAudioTrackDevice(enabled: Boolean) {
+    fun applyAudioTrackDevice(speaker: Boolean) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
                 val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                val targetDevice = if (enabled) {
+                val targetDevice = if (speaker) {
                     outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
                 } else {
                     outputs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
@@ -66,7 +68,7 @@ class VoipAudioStreamer(
                 if (targetDevice != null) {
                     val res = audioTrack?.setPreferredDevice(targetDevice)
                     Log.d(TAG, "audioTrack.setPreferredDevice(${targetDevice.type}): $res")
-                } else if (enabled) {
+                } else if (speaker) {
                     audioTrack?.setPreferredDevice(null)
                 }
             } catch (e: Exception) {
@@ -75,41 +77,98 @@ class VoipAudioStreamer(
         }
     }
 
-    fun setSpeakerphone(enabled: Boolean) {
+    fun enforceAudioRouting(speaker: Boolean) {
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            @Suppress("DEPRECATION")
+            audioManager.requestAudioFocus(
+                null,
+                AudioManager.STREAM_VOICE_CALL,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            )
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (enabled) {
-                    val speakerDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                val available = audioManager.availableCommunicationDevices
+                if (speaker) {
+                    val speakerDevice = available.firstOrNull {
                         it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
                     }
                     if (speakerDevice != null) {
                         val success = audioManager.setCommunicationDevice(speakerDevice)
-                        Log.d(TAG, "setCommunicationDevice SPEAKER: $success")
+                        Log.d(TAG, "enforceAudioRouting setCommunicationDevice SPEAKER: $success")
                     }
                 } else {
-                    val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                    val earpieceDevice = available.firstOrNull {
                         it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-                    } ?: audioManager.availableCommunicationDevices.firstOrNull {
+                    } ?: available.firstOrNull {
                         it.type == AudioDeviceInfo.TYPE_WIRED_HEADSET || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
                     }
                     if (earpieceDevice != null) {
                         val success = audioManager.setCommunicationDevice(earpieceDevice)
-                        Log.d(TAG, "setCommunicationDevice EARPIECE: $success")
+                        Log.d(TAG, "enforceAudioRouting setCommunicationDevice EARPIECE: $success")
                     } else {
-                        audioManager.clearCommunicationDevice()
+                        Log.w(TAG, "enforceAudioRouting: No earpiece found among ${available.map { it.type }}")
                     }
                 }
+            } else {
+                @Suppress("DEPRECATION")
+                audioManager.isSpeakerphoneOn = speaker
             }
-            @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = enabled
-            applyAudioTrackDevice(enabled)
-            _isSpeakerOn.value = enabled
-            Log.d(TAG, "Speakerphone set to: $enabled (earpiece=${!enabled})")
+
+            applyAudioTrackDevice(speaker)
         } catch (e: Exception) {
-            Log.w(TAG, "Error toggling speakerphone", e)
+            Log.w(TAG, "Error enforcing audio routing (speaker=$speaker)", e)
         }
+    }
+
+    private fun registerDeviceListener() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            unregisterDeviceListener()
+            try {
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val listener = AudioManager.OnCommunicationDeviceChangedListener { device ->
+                    val wantsSpeaker = userSpeakerChoice.get()
+                    val isSpeaker = (device?.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER)
+                    Log.d(TAG, "OnCommunicationDeviceChanged: type=${device?.type}, userWantsSpeaker=$wantsSpeaker")
+                    // If the user did NOT choose speaker, but Android/HAL auto-switched to speaker, force back to EARPIECE!
+                    if (!wantsSpeaker && isSpeaker) {
+                        Log.w(TAG, "Auto-switch to SPEAKER detected! Immediately forcing back to EARPIECE.")
+                        scope.launch {
+                            delay(50)
+                            enforceAudioRouting(false)
+                        }
+                    }
+                }
+                commDeviceListener = listener
+                audioManager.addOnCommunicationDeviceChangedListener(context.mainExecutor, listener)
+                Log.d(TAG, "Registered OnCommunicationDeviceChangedListener")
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed registering communication device listener", e)
+            }
+        }
+    }
+
+    private fun unregisterDeviceListener() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            commDeviceListener?.let { listener ->
+                try {
+                    val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    audioManager.removeOnCommunicationDeviceChangedListener(listener)
+                    Log.d(TAG, "Unregistered OnCommunicationDeviceChangedListener")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed unregistering communication device listener", e)
+                }
+            }
+            commDeviceListener = null
+        }
+    }
+
+    fun setSpeakerphone(enabled: Boolean) {
+        userSpeakerChoice.set(enabled)
+        _isSpeakerOn.value = enabled
+        enforceAudioRouting(enabled)
+        Log.d(TAG, "User toggled speakerphone: $enabled (earpiece=${!enabled})")
     }
 
     @SuppressLint("MissingPermission")
@@ -121,6 +180,8 @@ class VoipAudioStreamer(
         stop()
         activePeerPhone = peerPhone
         isRunning.set(true)
+        userSpeakerChoice.set(false)
+        _isSpeakerOn.value = false
 
         configureAudioManager()
         initAudioTrack()
@@ -129,17 +190,10 @@ class VoipAudioStreamer(
 
     private fun configureAudioManager() {
         try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            @Suppress("DEPRECATION")
-            audioManager.requestAudioFocus(
-                null,
-                AudioManager.STREAM_VOICE_CALL,
-                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
-            )
-            // DEFAULT: EARPIECE routing for private phone call listening
-            setSpeakerphone(false)
-            Log.d(TAG, "Audio routed to MODE_IN_COMMUNICATION with EARPIECE default")
+            // DEFAULT: EARPIECE routing locked down
+            enforceAudioRouting(false)
+            registerDeviceListener()
+            Log.d(TAG, "Audio routed to MODE_IN_COMMUNICATION with EARPIECE default & device listener active")
         } catch (e: Exception) {
             Log.w(TAG, "Failed configuring AudioManager", e)
         }
@@ -356,6 +410,8 @@ class VoipAudioStreamer(
 
         isAlertPlaying.set(false)
         _isSpeakerOn.value = false
+
+        unregisterDeviceListener()
 
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager

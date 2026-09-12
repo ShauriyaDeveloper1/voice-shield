@@ -99,16 +99,8 @@ class AudioCallEngine(
     fun startRinging() {
         try {
             stopRinging()
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_NORMAL
-
-            try {
-                toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 90)
-                toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
-            } catch (e: Exception) {
-                toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 90)
-                toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
-            }
+            toneGenerator = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 80)
+            toneGenerator?.startTone(ToneGenerator.TONE_SUP_RINGTONE)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to start ringtone tone generator", e)
         }
@@ -170,21 +162,6 @@ class AudioCallEngine(
         _chunksProcessedCount.value = 0
         _analysisStatusText.value = "MODEL ACTIVE & ANALYZING"
         _realtimeRiskScore.value = 18
-
-        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-
-        // Play brief connect prompt chime
-        try {
-            val connectTone = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
-            connectTone.startTone(ToneGenerator.TONE_PROP_PROMPT, 250)
-            scope.launch {
-                delay(300)
-                connectTone.release()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Error playing connect prompt", e)
-        }
 
         isRecording = true
 
@@ -414,21 +391,6 @@ class AudioCallEngine(
     fun stopCallAudio() {
         isRecording = false
         stopRinging()
-        try {
-            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_NORMAL
-            @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = false
-
-            val endTone = ToneGenerator(AudioManager.STREAM_MUSIC, 75)
-            endTone.startTone(ToneGenerator.TONE_PROP_BEEP2, 250)
-            scope.launch {
-                delay(300)
-                endTone.release()
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Error playing disconnect tone", e)
-        }
         try {
             audioRecord?.stop()
             audioRecord?.release()
