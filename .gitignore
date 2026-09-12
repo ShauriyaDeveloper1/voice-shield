@@ -178,6 +178,7 @@ logs/
 *.flac
 *.mp3
 *.mp4
+!app/src/main/res/raw/*
 
 # ===========================
 # Temporary Files

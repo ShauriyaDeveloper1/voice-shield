@@ -10,6 +10,9 @@ import android.util.Base64
 import android.util.Log
 import com.google.gson.JsonObject
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -32,13 +35,56 @@ class VoipAudioStreamer(
 
     private val isRunning = AtomicBoolean(false)
     private val isMuted = AtomicBoolean(false)
+    private val isAlertPlaying = AtomicBoolean(false)
     private var activePeerPhone: String = ""
+
+    private val _isSpeakerOn = MutableStateFlow(false)
+    val isSpeakerOn: StateFlow<Boolean> = _isSpeakerOn.asStateFlow()
 
     val sampleRate = 16000
     // 100ms chunk = 1600 samples at 16kHz
     private val frameSamples = 1600
 
     var onPeerAudioDecoded: ((pcmBytes: ByteArray, sampleRate: Int) -> Unit)? = null
+
+    fun setAlertPlaying(playing: Boolean) {
+        isAlertPlaying.set(playing)
+        Log.d(TAG, "Local warning alert playing state: $playing (mic outbound suppressed=$playing)")
+    }
+
+    fun setSpeakerphone(enabled: Boolean) {
+        try {
+            val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (enabled) {
+                    val speakerDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                    }
+                    if (speakerDevice != null) {
+                        val success = audioManager.setCommunicationDevice(speakerDevice)
+                        Log.d(TAG, "setCommunicationDevice SPEAKER: $success")
+                    }
+                } else {
+                    val earpieceDevice = audioManager.availableCommunicationDevices.firstOrNull {
+                        it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                    }
+                    if (earpieceDevice != null) {
+                        val success = audioManager.setCommunicationDevice(earpieceDevice)
+                        Log.d(TAG, "setCommunicationDevice EARPIECE: $success")
+                    } else {
+                        audioManager.clearCommunicationDevice()
+                    }
+                }
+            }
+            @Suppress("DEPRECATION")
+            audioManager.isSpeakerphoneOn = enabled
+            _isSpeakerOn.value = enabled
+            Log.d(TAG, "Speakerphone set to: $enabled (earpiece=${!enabled})")
+        } catch (e: Exception) {
+            Log.w(TAG, "Error toggling speakerphone", e)
+        }
+    }
 
     @SuppressLint("MissingPermission")
     fun start(peerPhone: String) {
@@ -60,14 +106,14 @@ class VoipAudioStreamer(
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
             audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
             @Suppress("DEPRECATION")
-            audioManager.isSpeakerphoneOn = true
-            @Suppress("DEPRECATION")
             audioManager.requestAudioFocus(
                 null,
                 AudioManager.STREAM_VOICE_CALL,
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
             )
-            Log.d(TAG, "Audio routed to MODE_IN_COMMUNICATION with speakerphone enabled")
+            // DEFAULT: EARPIECE routing for private phone call listening
+            setSpeakerphone(false)
+            Log.d(TAG, "Audio routed to MODE_IN_COMMUNICATION with EARPIECE default")
         } catch (e: Exception) {
             Log.w(TAG, "Failed configuring AudioManager", e)
         }
@@ -176,8 +222,15 @@ class VoipAudioStreamer(
                 while (isRunning.get()) {
                     val read = audioRecord?.read(shortBuffer, 0, shortBuffer.size) ?: 0
                     if (read > 0 && !isMuted.get() && activePeerPhone.isNotBlank()) {
+                        // If warning alert ("Be aware") is playing locally to user,
+                        // transmit silence frame so the remote caller cannot hear the warning!
+                        val bufferToSend = if (isAlertPlaying.get()) {
+                            ShortArray(read)
+                        } else {
+                            shortBuffer
+                        }
                         // Compress 16-bit linear PCM to 8-bit G.711 mu-law
-                        val ulawData = G711Codec.encode(shortBuffer, read)
+                        val ulawData = G711Codec.encode(bufferToSend, read)
                         val base64 = Base64.encodeToString(ulawData, Base64.NO_WRAP)
 
                         val chunkMsg = JsonObject().apply {
@@ -274,11 +327,19 @@ class VoipAudioStreamer(
             Log.w(TAG, "Error releasing AudioTrack", e)
         }
 
+        isAlertPlaying.set(false)
+        _isSpeakerOn.value = false
+
         try {
             val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            audioManager.mode = AudioManager.MODE_NORMAL
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice()
+            }
             @Suppress("DEPRECATION")
             audioManager.isSpeakerphoneOn = false
+            audioManager.mode = AudioManager.MODE_NORMAL
+            @Suppress("DEPRECATION")
+            audioManager.abandonAudioFocus(null)
         } catch (e: Exception) {
             Log.w(TAG, "Error resetting AudioManager mode", e)
         }
