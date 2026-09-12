@@ -25,11 +25,11 @@ app.include_router(contacts.router, prefix="/api/contacts", tags=["contacts"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"message": "VoiceShield backend is running"}
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     return {"status": "ok", "service": "voiceshield"}
