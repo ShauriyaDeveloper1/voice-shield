@@ -65,6 +65,8 @@ class WebRtcCallManager(
             .createIceServer()
     )
 
+    var onAudioChunkCaptured: ((pcmData: ByteArray, sampleRate: Int) -> Unit)? = null
+
     init {
         initPeerConnectionFactory()
     }
@@ -76,10 +78,19 @@ class WebRtcCallManager(
                 .createInitializationOptions()
             PeerConnectionFactory.initialize(initOptions)
 
-            // Explicitly configure JavaAudioDeviceModule with hardware AEC and noise suppression
+            // Explicitly configure JavaAudioDeviceModule with hardware AEC, noise suppression, and audio sample hook
             val adm = JavaAudioDeviceModule.builder(context)
                 .setUseHardwareAcousticEchoCanceler(true)
                 .setUseHardwareNoiseSuppressor(true)
+                .setSamplesReadyCallback(object : JavaAudioDeviceModule.SamplesReadyCallback {
+                    override fun onWebRtcAudioRecordSamplesReady(audioSamples: JavaAudioDeviceModule.AudioSamples) {
+                        val data = audioSamples.data
+                        val sampleRate = audioSamples.sampleRate
+                        if (data != null && data.isNotEmpty()) {
+                            onAudioChunkCaptured?.invoke(data, sampleRate)
+                        }
+                    }
+                })
                 .createAudioDeviceModule()
 
             val options = PeerConnectionFactory.Options()

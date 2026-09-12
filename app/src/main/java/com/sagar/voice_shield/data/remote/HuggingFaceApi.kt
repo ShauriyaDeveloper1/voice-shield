@@ -31,6 +31,6 @@ interface HuggingFaceApi {
     /**
      * Health check for the HuggingFace Space.
      */
-    @GET("health")
+    @GET("gradio_api/info")
     suspend fun healthCheck(): HfHealthResponse
 }

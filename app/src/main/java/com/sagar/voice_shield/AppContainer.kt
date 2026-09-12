@@ -59,6 +59,12 @@ class AppContainer(context: Context) {
     val huggingFaceApi: com.sagar.voice_shield.data.remote.HuggingFaceApi =
         hfRetrofit.create(com.sagar.voice_shield.data.remote.HuggingFaceApi::class.java)
 
+    val huggingFaceGradioClient = com.sagar.voice_shield.data.remote.HuggingFaceGradioClient(
+        client = hfOkHttpClient,
+        baseUrl = BuildConfig.HF_SPACE_URL,
+        backendApi = api
+    )
+
     // Local Data
     val preferencesManager = PreferencesManager(context)
     val database = com.sagar.voice_shield.data.local.room.VoiceShieldDatabase.getDatabase(context)
@@ -92,6 +98,14 @@ class AppContainer(context: Context) {
         prosodyAnalyzer = prosodyAnalyzer,
         riskEngine = riskEngine,
         hfApi = huggingFaceApi,
-        backendApi = api
+        backendApi = api,
+        hfGradioClient = huggingFaceGradioClient
     )
+
+    init {
+        // Wire WebRTC audio capture directly to AudioCallEngine for real-time AI deepfake analysis
+        voipCallManager.webRtcCallManager.onAudioChunkCaptured = { pcmData, sampleRate ->
+            audioCallEngine.feedAudioChunk(pcmData, sampleRate)
+        }
+    }
 }

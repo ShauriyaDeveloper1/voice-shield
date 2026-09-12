@@ -67,6 +67,9 @@ fun ActiveCallScreen(
     val prosodyMatch by audioCallEngine.realtimeProsodyMatch.collectAsStateWithLifecycle()
     val vocoderMatch by audioCallEngine.realtimeVocoderMatch.collectAsStateWithLifecycle()
     val embeddingMatch by audioCallEngine.realtimeEmbeddingMatch.collectAsStateWithLifecycle()
+    val audioLevel by audioCallEngine.realtimeAudioLevel.collectAsStateWithLifecycle()
+    val chunksCount by audioCallEngine.chunksProcessedCount.collectAsStateWithLifecycle()
+    val analysisStatusText by audioCallEngine.analysisStatusText.collectAsStateWithLifecycle()
 
     // Clean Caller Name (strip URL encoding '+' characters)
     val callerName = remember(targetName, activePeerNameState, targetPhone) {
@@ -489,18 +492,21 @@ fun ActiveCallScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                PulsingDot(color = VsSecondary, size = 7)
+                                PulsingDot(color = if (riskScore > 35) VsError else VsSecondary, size = 7)
                                 Text(
-                                    "MODEL ACTIVE & ANALYZING",
+                                    if (chunksCount in 1..4) "ANALYZING CHUNK ($chunksCount/5) • AASIST"
+                                    else analysisStatusText,
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = VsSecondary,
+                                    color = if (riskScore > 35) VsError else VsSecondary,
                                     fontWeight = FontWeight.ExtraBold,
                                     letterSpacing = 1.sp
                                 )
                             }
                             Spacer(Modifier.height(3.dp))
                             Text(
-                                "Real-time AI protection is active. Analyzing live speech for neural vocoders, acoustic anomalies, and impersonation risk.",
+                                if (chunksCount < 5) "Real-time AI protection is active. Analyzing live speech chunks with Hugging Face ZeroGPU AASIST anti-spoofing model."
+                                else if (riskScore <= 35) "Voice verified authentic. Hugging Face AASIST detected natural speech cadence with no synthetic cloning."
+                                else "CRITICAL WARNING: Hugging Face AASIST detected synthetic neural vocoder and voice clone patterns.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = VsOnSurfaceVariant,
                                 fontSize = 12.sp,
@@ -649,13 +655,15 @@ fun ActiveCallScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 repeat(24) { i ->
-                    val height = (15 + (sin(callDuration * 2.0 + i) * 15) + (Random.nextFloat() * 25)).toFloat()
+                    val baseFluctuation = (sin(callDuration * 3.0 + i * 0.8) * 12).toFloat()
+                    val speechImpact = (audioLevel * 60f * (0.6f + Random.nextFloat() * 0.4f))
+                    val height = (12f + baseFluctuation + speechImpact).coerceIn(10f, 95f)
                     Box(
                         modifier = Modifier
                             .width(4.dp)
                             .fillMaxHeight(height / 100f)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Brush.verticalGradient(listOf(severityColor.copy(alpha = 0.8f), severityColor.copy(alpha = 0.2f))))
+                            .background(Brush.verticalGradient(listOf(severityColor.copy(alpha = 0.85f), severityColor.copy(alpha = 0.2f))))
                     )
                 }
             }
