@@ -54,6 +54,10 @@ class VoipCallManager(
         sendMessage(json)
     }
 
+    val audioStreamer = VoipAudioStreamer(context) { json ->
+        sendMessage(json)
+    }
+
     private fun startIncomingRingtone() {
         try {
             stopIncomingRingtone()
@@ -243,6 +247,7 @@ class VoipCallManager(
                                 _statusMessage.value = "Call Connected • Voice Active"
                                 val peer = _activePeerPhone.value.ifBlank { json.get("from_phone")?.takeIf { !it.isJsonNull }?.asString ?: "" }
                                 if (peer.isNotBlank()) {
+                                    audioStreamer.start(peer)
                                     webRtcCallManager.startCallerFlow(peer)
                                 }
                             }
@@ -289,6 +294,9 @@ class VoipCallManager(
                             _callState.value = VoipCallState.CONNECTED
                             callStartTime = System.currentTimeMillis()
                             _statusMessage.value = "Connected • Voice Active"
+                            if (fromPhone.isNotBlank()) {
+                                audioStreamer.start(fromPhone)
+                            }
                             webRtcCallManager.handleRemoteOffer(sdp, fromPhone)
                         }
                     }
@@ -312,6 +320,16 @@ class VoipCallManager(
                         val sdpMLineIndex = candObj?.get("sdpMLineIndex")?.takeIf { !it.isJsonNull }?.asInt ?: 0
                         if (cand.isNotBlank()) {
                             webRtcCallManager.handleRemoteCandidate(sdpMid, sdpMLineIndex, cand)
+                        }
+                    }
+                }
+
+                "audio_chunk" -> {
+                    if (_callState.value == VoipCallState.CONNECTED) {
+                        val audioBase64 = json.get("audio")?.takeIf { !it.isJsonNull }?.asString ?: ""
+                        val codec = json.get("codec")?.takeIf { !it.isJsonNull }?.asString ?: "ulaw"
+                        if (audioBase64.isNotBlank()) {
+                            audioStreamer.handleIncomingAudioChunk(audioBase64, codec)
                         }
                     }
                 }
@@ -345,6 +363,8 @@ class VoipCallManager(
         _incomingCall.value = null
         _callState.value = VoipCallState.CONNECTED
         callStartTime = System.currentTimeMillis()
+
+        audioStreamer.start(incoming.fromPhone)
 
         sendMessage(JsonObject().apply {
             addProperty("type", "call_status")
@@ -390,10 +410,12 @@ class VoipCallManager(
 
     fun setMute(isMuted: Boolean) {
         webRtcCallManager.setMute(isMuted)
+        audioStreamer.setMuted(isMuted)
     }
 
     fun endCall(saveHistory: Boolean = true, riskScore: Int = 18, sendWsEnded: Boolean = true, fallbackPeerPhone: String = "") {
         stopIncomingRingtone()
+        audioStreamer.stop()
         webRtcCallManager.cleanupPeerConnection(clearQueuedCandidates = true)
         val peer = _activePeerPhone.value
             .ifBlank { fallbackPeerPhone }

@@ -107,5 +107,10 @@ class AppContainer(context: Context) {
         voipCallManager.webRtcCallManager.onAudioChunkCaptured = { pcmData, sampleRate ->
             audioCallEngine.feedAudioChunk(pcmData, sampleRate)
         }
+
+        // Wire incoming live VoIP audio stream directly to AudioCallEngine for real-time AI deepfake analysis
+        voipCallManager.audioStreamer.onPeerAudioDecoded = { pcmData, sampleRate ->
+            audioCallEngine.feedAudioChunk(pcmData, sampleRate)
+        }
     }
 }

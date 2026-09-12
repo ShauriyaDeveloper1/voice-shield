@@ -195,8 +195,9 @@ class AudioCallEngine(
                 delay(1500)
             }
 
-            // Only launch local AudioRecord if WebRTC callback has not fed chunks
-            if (isRecording && (!isVoipWebRtc || lastChunkFedTime == 0L)) {
+            // Only launch local AudioRecord if this is NOT a live VoIP call (e.g. offline demo mode).
+            // For live VoIP calls, AudioCallEngine is fed the remote caller's audio via feedAudioChunk.
+            if (isRecording && !isVoipWebRtc) {
                 try {
                     audioRecord = AudioRecord(
                         MediaRecorder.AudioSource.MIC,

@@ -24,45 +24,18 @@ class WebRtcCallManager(
     @Volatile
     private var isRemoteDescriptionSet = false
 
-    // High-availability STUN + Open Relay TURN servers for seamless cross-network & CGNAT traversal
+    // High-availability global STUN servers for NAT discovery
     private val iceServers = listOf(
         PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun4.l.google.com:19302").createIceServer(),
+        PeerConnection.IceServer.builder("stun:stun.cloudflare.com:3478").createIceServer(),
+        PeerConnection.IceServer.builder("stun:turn.matrix.org:3478").createIceServer(),
+        PeerConnection.IceServer.builder("stun:webrtc.free-solutions.org:3478").createIceServer(),
         PeerConnection.IceServer.builder("stun:stun.services.mozilla.com:3478").createIceServer(),
-        PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer(),
-        // Free open TURN relays allowing WebRTC audio across differing networks, cellular LTE/5G & Wi-Fi
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:80?transport=udp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=udp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turn:openrelay.metered.ca:443?transport=tcp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        // Secure TLS TURN relays for strict firewalls, corporate networks & mobile CGNAT
-        PeerConnection.IceServer.builder("turns:openrelay.metered.ca:443?transport=tcp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer(),
-        PeerConnection.IceServer.builder("turns:openrelay.metered.ca:5349?transport=tcp")
-            .setUsername("openrelayproject")
-            .setPassword("openrelayproject")
-            .createIceServer()
+        PeerConnection.IceServer.builder("stun:stun.relay.metered.ca:80").createIceServer()
     )
 
     var onAudioChunkCaptured: ((pcmData: ByteArray, sampleRate: Int) -> Unit)? = null
