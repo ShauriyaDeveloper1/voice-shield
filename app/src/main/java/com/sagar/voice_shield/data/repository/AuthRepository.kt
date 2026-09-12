@@ -375,8 +375,8 @@ class AuthRepository(
         val formattedPhone = if (cleanDigits.startsWith("91") && cleanDigits.length > 10) "+$cleanDigits" else "+91$cleanDigits"
         
         // Retrieve valid UUID or generate one
-        val currentUserId = prefs.getUserId()
-        val userId = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
+        val currentUserId = prefs.userId.firstOrNull()
+        val userId: String = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
             currentUserId
         } else {
             java.util.UUID.randomUUID().toString()
@@ -388,7 +388,7 @@ class AuthRepository(
         try {
             val resp = api.confirmProfile(
                 ConfirmProfileRequest(
-                    id = userId,
+                    id = userId as String,
                     email = "phone_${cleanDigits}@voiceshield.com",
                     name = name,
                     phone = formattedPhone
@@ -404,7 +404,7 @@ class AuthRepository(
         // Now we mark the user as logged in with their actual full name and verified UUID
         prefs.saveLoginData(
             token = resolvedToken,
-            id = finalUserId,
+            id = finalUserId as String,
             name = name,
             email = "phone_${cleanDigits}@voiceshield.com",
             phone = formattedPhone
@@ -413,8 +413,8 @@ class AuthRepository(
 
     suspend fun updateUserProfileName(name: String, phone: String) {
         val cleanDigits = phone.filter { it.isDigit() }
-        val currentUserId = prefs.getUserId()
-        val userId = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
+        val currentUserId = prefs.userId.firstOrNull()
+        val userId: String = if (!currentUserId.isNullOrBlank() && !currentUserId.startsWith("user_")) {
             currentUserId
         } else {
             java.util.UUID.randomUUID().toString()
@@ -423,7 +423,7 @@ class AuthRepository(
         try {
             api.confirmProfile(
                 ConfirmProfileRequest(
-                    id = userId,
+                    id = userId as String,
                     email = "phone_${cleanDigits}@voiceshield.com",
                     name = name,
                     phone = if (phone.startsWith("+")) phone else "+$cleanDigits"
