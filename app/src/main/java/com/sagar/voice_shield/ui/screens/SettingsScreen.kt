@@ -1,5 +1,6 @@
 package com.sagar.voice_shield.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -566,15 +567,25 @@ fun SettingsScreen(
                             isTestingConnection = true
                             scope.launch {
                                 val startTime = System.currentTimeMillis()
-                                val isHealthy = withContext(Dispatchers.IO) {
+                                val (isHealthy, errorDetail) = withContext(Dispatchers.IO) {
                                     try {
-                                        appContainer.authRepository.checkHealth()
+                                        val resp = appContainer.api.healthCheck()
+                                        if (resp.status.equals("ok", ignoreCase = true)) {
+                                            Pair(true, null)
+                                        } else {
+                                            Pair(false, "Status: ${resp.status}")
+                                        }
                                     } catch (e: Exception) {
-                                        false
+                                        Log.e("SettingsScreen", "Live ping failed: ${e.message}", e)
+                                        Pair(false, e.localizedMessage ?: "Connection error")
                                     }
                                 }
                                 val latency = System.currentTimeMillis() - startTime
-                                pingStatus = if (isHealthy) "Online • Latency: ${latency}ms (HTTP 200)" else "Server unreachable or sleeping"
+                                pingStatus = if (isHealthy) {
+                                    "Online • Latency: ${latency}ms (HTTP 200)"
+                                } else {
+                                    "Server unreachable or sleeping (${errorDetail ?: "Failed"})"
+                                }
                                 isTestingConnection = false
                             }
                         },

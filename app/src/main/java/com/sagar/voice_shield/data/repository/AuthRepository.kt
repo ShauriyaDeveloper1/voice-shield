@@ -453,9 +453,19 @@ class AuthRepository(
     suspend fun checkHealth(): Boolean {
         return try {
             val mainResponse = api.healthCheck()
-            val hfResponse = hfApi.healthCheck()
-            mainResponse.status == "ok" && hfResponse.status == "ok"
+            mainResponse.status.equals("ok", ignoreCase = true)
         } catch (e: Exception) {
+            Log.e(TAG, "Backend health check failed: ${e.message}", e)
+            false
+        }
+    }
+
+    suspend fun checkHfHealth(): Boolean {
+        return try {
+            val hfResponse = hfApi.healthCheck()
+            hfResponse.status.equals("ok", ignoreCase = true) || hfResponse.status.equals("success", ignoreCase = true)
+        } catch (e: Exception) {
+            Log.w(TAG, "HF space check info: ${e.message}")
             false
         }
     }
